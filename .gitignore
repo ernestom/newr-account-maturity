@@ -1,3 +1,13 @@
+# Sensitive data
+data/*
+*.csv
+client_secret.json
+credentials.json
+storage.json
+
+# Mac crap
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
