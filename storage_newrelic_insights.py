@@ -8,11 +8,7 @@ class StorageNewRelicInsights():
 
     INSIGHTS_MAX_EVENTS = 1000
 
-    def __init__(self, new_relic_account_id=None, insert_api_key=None):
-        if not insert_api_key or len(insert_api_key) != 32:
-            insert_api_key = os.getenv('NEW_RELIC_INSIGHTS_INSERT_KEY', '')
-        if type(new_relic_account_id) != int:
-            new_relic_account_id = os.getenv('NEW_RELIC_INSIGHTS_INSERT_ACCOUNT_ID', 0)
+    def __init__(self, new_relic_account_id, insert_api_key):
         self.__headers = {
             'Content-Type': 'application/json',
             'X-Insert-Key': insert_api_key
