@@ -100,23 +100,21 @@ class StorageGoogleDrive():
         else:
             raise Exception('error: empty append data set')
         
-        requests = [{
-                "appendDimension": {
-                    "sheetId": 0,
-                    "dimension": "ROWS",
-                    "length": total_rows
-                }
-            }]
-        if total_columns > 26:
-             requests.append({
+        if total_columns < 26:
+             requests = [{
                 "appendDimension": {
                     "sheetId": 0,
                     "dimension": "COLUMNS",
                     "length": total_columns - 26
                 }
-            })          
+            }]
+        else:
+            requests = [] 
+
         value = lambda x: {"userEnteredValue": {"stringValue": str(x)}}
-        rows = [{"values": [value(cell) for cell in row]} for row in sheet_data]
+        rows = [
+            {"values": [value(cell) for cell in row]} for row in sheet_data
+        ]
         requests.append({
             "appendCells": {
                 "sheetId": 0,
