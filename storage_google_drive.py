@@ -5,6 +5,60 @@ import time
 from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient import discovery
 
+SHEET_DEFAULT_COLUMNS=26
+
+def sheet_value(x):
+    """ create the proper JSON to append data to a sheet depending on the value type """
+
+    if type(x) == str:
+        return {
+            "userEnteredValue": {
+                "stringValue": x
+            }
+        }
+    elif type(x) == bool:
+        return {
+            "userEnteredValue": {
+                "boolValue": x
+            }
+        }
+    elif type(x) == int:
+        return {
+            "userEnteredValue": {
+                "numberValue": x
+            }, 
+            "userEnteredFormat": {
+                "numberFormat": {
+                    "type": "NUMBER",
+                    "pattern": "#,##0"
+                }
+            }
+        }
+    # ducktape hack... Only floats above 40K in my data are DATES
+    elif type(x) == float and x > 40000: 
+        return {
+            "userEnteredValue": {
+                "numberValue": x
+            }, 
+            "userEnteredFormat": {
+                "numberFormat": {
+                    "type": "DATE"
+                }
+            }
+        }
+    else:
+        return {
+            "userEnteredValue": {
+                "numberValue": x
+            }, 
+            "userEnteredFormat": {
+                "numberFormat": {
+                    "type": "NUMBER",
+                    "pattern": "#,##0.00"
+                }
+            }
+        }
+
 class StorageGoogleDrive():
 
     OBJECT_TYPES = {
@@ -32,7 +86,7 @@ class StorageGoogleDrive():
         self.__sheets = discovery.build('sheets', 'v4', credentials=credentials)
 
         output_folder = time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', time.localtime())
-        self.output_folder_id = self.__create_object('folder', output_folder, folder_id)
+        self.output_folder_id, _ = self.__create_object('folder', output_folder, folder_id)
 
     def __set_permissions(self, object_id=None):
         """ set readers / writers permission on object id """
@@ -88,69 +142,96 @@ class StorageGoogleDrive():
                 'parents': [parent_id]
             }
             response = self.__drive.files().create(body=body).execute() # pylint: disable=no-member
-            # object_id = self.__set_permissions(response['id'])
             object_id = response['id']
-
-        return object_id
-
-    def __sheet_append(self, spreadsheet_id, sheet_data):
-        total_rows = len(sheet_data)
-        if total_rows > 0:
-            total_columns = len(sheet_data[0])
+            just_created = True
         else:
-            raise Exception('error: empty append data set')
-        
-        if total_columns < 26:
-             requests = [{
+            just_created = False
+
+        return object_id, just_created
+
+    def __sheet_adjust_size(self, spreadsheet_id, sheet_id=0, total_columns=SHEET_DEFAULT_COLUMNS):
+        """ set the total number of columns on a sheet """
+
+        if total_columns > SHEET_DEFAULT_COLUMNS:
+            requests = [{
                 "appendDimension": {
-                    "sheetId": 0,
+                    "sheetId": sheet_id,
                     "dimension": "COLUMNS",
-                    "length": total_columns - 26
+                    "length": total_columns - SHEET_DEFAULT_COLUMNS
+                }
+            }]
+        elif total_columns < SHEET_DEFAULT_COLUMNS:
+            requests = [{
+                "deleteDimension": {
+                    "range": {
+                        "sheetId": sheet_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": 0,
+                        "endIndex": SHEET_DEFAULT_COLUMNS - total_columns
+                    }
                 }
             }]
         else:
-            requests = [] 
+            requests = None
+        
+        if requests:
+            body = {"requests": requests}
+            spreadsheets = self.__sheets.spreadsheets() # pylint: disable=no-member
+            spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
-        value = lambda x: {"userEnteredValue": {"stringValue": str(x)}}
-        rows = [
-            {"values": [value(cell) for cell in row]} for row in sheet_data
-        ]
-        requests.append({
+    def __sheet_append(self, spreadsheet_id, sheet_id=0, sheet_data=[]):
+        """ append new rows to a sheet """
+
+        total_rows = len(sheet_data)
+        if total_rows == 0:
+            raise Exception('error: empty sheet data')
+
+        rows = [{"values": [sheet_value(cell) for cell in row]} for row in sheet_data]
+        requests = [{
             "appendCells": {
-                "sheetId": 0,
+                "sheetId": sheet_id,
                  "rows": rows,
                     "fields": "*",
             }
-        })
+        }]
 
         body = {"requests": requests}
-        self.__sheets.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute() # pylint: disable=no-member
+        spreadsheets = self.__sheets.spreadsheets() # pylint: disable=no-member
+        spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
     def get_file_handle(self, name):
         if not name in self.files:
-            spreadsheet_id = self.__create_object('spreadsheet', name, self.output_folder_id)
+            spreadsheet_id, just_created = self.__create_object('spreadsheet', name, self.output_folder_id)
             self.files.update({name: spreadsheet_id})
-            just_created = True
         else:
             just_created = False
         return self.files[name], just_created
 
-    def get_accounts(self, name):
-        # id = self.__open_sheet(name, self.folder_id)
-        pass
+    def get_accounts(self, spreadsheet_id):
+        spreadsheets = self.__sheets.spreadsheets() # pylint: disable=no-member
+        request = spreadsheets.values().get(spreadsheetId=spreadsheet_id, range='AccountsList')
+        response = request.execute()
+        values = response.get('values', [])
+        accounts = []
+        if len(values) > 1:
+            headers, rows = values[0], values[1:]
+            for row in rows:
+                accounts.append({headers[k]:v for k,v in enumerate(row)})
+        return accounts
         
     def dump_metrics(self, name, data=[], metadata={}):
         if type(data) == list:
-            sheet_id, just_created = self.get_file_handle(name)
             if len(data) > 0:
                 if len(metadata) > 0:
                     for row in data:
                         row.update(metadata)
+                spreadsheet_id, just_created = self.get_file_handle(name)
                 if just_created:
                     fieldnames = list(data[0].keys())
                     sheet_data = [fieldnames]
+                    self.__sheet_adjust_size(spreadsheet_id, 0, len(fieldnames))
                 else:
                     sheet_data = []
                 for row in data:
                     sheet_data.append(list(row.values()))
-                self.__sheet_append(sheet_id, sheet_data)
+                self.__sheet_append(spreadsheet_id, 0, sheet_data)
