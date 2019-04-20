@@ -1,1 +1,4 @@
+oauth2client
+googleapiclient
 requests
+urllib

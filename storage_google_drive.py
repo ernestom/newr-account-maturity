@@ -88,7 +88,8 @@ class StorageGoogleDrive():
                 'parents': [parent_id]
             }
             response = self.__drive.files().create(body=body).execute() # pylint: disable=no-member
-            object_id = self.__set_permissions(response['id'])
+            # object_id = self.__set_permissions(response['id'])
+            object_id = response['id']
 
         return object_id
 
