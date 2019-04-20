@@ -8,18 +8,19 @@ class StorageNewRelicInsights():
 
     INSIGHTS_MAX_EVENTS = 1000
 
-    def __init__(self, account_id, insert_api_key=''):
-        if len(insert_api_key) != 32:
+    def __init__(self, new_relic_account_id=None, insert_api_key=None):
+        if not insert_api_key or len(insert_api_key) != 32:
             insert_api_key = os.getenv('NEW_RELIC_INSIGHTS_INSERT_KEY', '')
-        self.files = {}
-        self.headers = {
+        if type(new_relic_account_id) != int:
+            new_relic_account_id = os.getenv('NEW_RELIC_INSIGHTS_INSERT_ACCOUNT_ID', 0)
+        self.__headers = {
             'Content-Type': 'application/json',
             'X-Insert-Key': insert_api_key
         }
-        self.url = f'https://insights-collector.newrelic.com/v1/accounts/{account_id}/events'
+        self.__url = f'https://insights-collector.newrelic.com/v1/accounts/{new_relic_account_id}/events'
 
     def get_accounts(self, name):
-        return []
+        raise Exception('error: get_accounts not implemented on this class.')
         
     def dump_metrics(self, name, data=[], metadata={}, max_retries=MAX_RETRIES):
         if type(data) == list:
@@ -35,14 +36,10 @@ class StorageNewRelicInsights():
                     try:
                         count_retries += 1
                         response = requests.post(
-                            self.url,
+                            self.__url,
                             data=json.dumps(data_chunk),
-                            headers=self.headers
+                            headers=self.__headers
                         )
                         succeeded = (response.status_code == requests.codes.ok)
                     except:
                         succeeded = False
-                
-
-    def flush_metrics(self, location):
-        pass

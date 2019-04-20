@@ -1,9 +1,7 @@
 # Sensitive data
-data/*
+MATURITY*
 *.csv
-client_secret.json
-credentials.json
-storage.json
+*.json
 
 # Mac crap
 .DS_Store

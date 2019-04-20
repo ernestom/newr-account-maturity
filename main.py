@@ -9,9 +9,11 @@ from storage_local import StorageLocal
 def main():
     updated_at = int(time.time())
 
-    local_storage = StorageLocal('/Users/pmonteiro/Desktop/newr-account-maturity/data/')
+    local_storage = StorageLocal('/Users/pmonteiro/newr-account-maturity')
     insights_storage = StorageNewRelicInsights(2315900)
-    google_storage = StorageGoogleDrive('')
+    google_storage = StorageGoogleDrive(
+        '1JCh2seqmxBrVfLMUEi1FjjA85M16i2rN', 'client_secrets.json', writers=['pmonteiro@newrelic.com']
+    )
 
     accounts = local_storage.get_accounts('maturity-input')
 
@@ -45,17 +47,17 @@ def main():
         # dump APM metrics
         local_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
         insights_storage.dump_metrics('ApmDetails', apm_apps, metadata)
-        google_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
+        #google_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
 
         # dump Browser metrics
         local_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
         insights_storage.dump_metrics('BrowserDetails', apm_apps, metadata)
-        google_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
+        #google_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
 
         # dump Mobile metrics
         local_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
         insights_storage.dump_metrics('MobileDetails', apm_apps, metadata)
-        google_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
+        #google_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
 
 if __name__ == '__main__':
     main()
