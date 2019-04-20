@@ -6,9 +6,8 @@ class StorageLocal():
 
     def __init__(self, folder):
         self.files = {}
-        self.folder = folder
         output_folder = time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', time.localtime())
-        self.output_folder = os.path.join(self.folder, output_folder)
+        self.output_folder = os.path.join(folder, output_folder)
         if not os.path.exists(self.output_folder):
             os.mkdir(self.output_folder)
 
@@ -21,22 +20,22 @@ class StorageLocal():
             just_created = False
         return self.files[name], just_created
 
-    def get_accounts(self, name):
-        with open(os.path.join(self.folder, name + '.csv')) as csv_file:
+    def get_accounts(self, filename):
+        with open(os.path.join(filename)) as csv_file:
             csv_reader = csv.DictReader(csv_file, delimiter=',')
             return list(row for row in csv_reader) 
         
     def dump_metrics(self, name, data=[], metadata={}):
-        if type(data) == list:
-            handle, just_created = self.get_file_handle(name)
-            if len(data) > 0:
-                if len(metadata) > 0:
-                    for row in data:
-                        row.update(metadata)
-                fieldnames = data[0].keys()
-                csv_writer = csv.DictWriter(handle, fieldnames=fieldnames)
-                if just_created:
-                    csv_writer.writeheader()
+        if type(data) == list and len(data) > 0:
+            if len(metadata) > 0:
                 for row in data:
-                    csv_writer.writerow(row)
-                handle.flush()
+                    row.update(metadata)
+            handle, just_created = self.get_file_handle(name)
+
+            fieldnames = data[0].keys()
+            csv_writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            if just_created:
+                csv_writer.writeheader()
+            for row in data:
+                csv_writer.writerow(row)
+            handle.flush()

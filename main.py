@@ -103,19 +103,22 @@ def dump_metrics(config):
         account_master = account['master_name']
 
         # dump metrics to local storage
-        if local_storage:
+        if config['output_local']:
             local_storage.dump_metrics('SUMMARY', [account_summary], metadata)
             local_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
             local_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
             local_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
 
-        if google_storage:
+        # dump metrics to google storage
+        if config['output_google']:
             google_storage.dump_metrics('SUMMARY', [account_summary], metadata)
             google_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
             google_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
             google_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
         
-        if insights_storage:
+        # dump metrics to insights storage, must be called at the very last as
+        # it will add an eventType attribute to every metric row. no deep copying folks
+        if config['output_insights']:
             insights_storage.dump_metrics('Summary', [account_summary], metadata)
             insights_storage.dump_metrics('ApmDetails', apm_apps, metadata)
             insights_storage.dump_metrics('BrowserDetails', browser_apps, metadata)
@@ -123,11 +126,11 @@ def dump_metrics(config):
  
 
 def main():
-    try:
+    #try:
         config = get_config()
         dump_metrics(config)
-    except Exception as error:
-        print(error.args[0])
+    #except Exception as error:
+    #    print(error.args)
 
 if __name__ == '__main__':
     main()

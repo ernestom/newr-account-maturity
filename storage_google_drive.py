@@ -220,18 +220,19 @@ class StorageGoogleDrive():
         return accounts
         
     def dump_metrics(self, name, data=[], metadata={}):
-        if type(data) == list:
-            if len(data) > 0:
-                if len(metadata) > 0:
-                    for row in data:
-                        row.update(metadata)
-                spreadsheet_id, just_created = self.get_file_handle(name)
-                if just_created:
-                    fieldnames = list(data[0].keys())
-                    sheet_data = [fieldnames]
-                    self.__sheet_adjust_size(spreadsheet_id, 0, len(fieldnames))
-                else:
-                    sheet_data = []
+        if type(data) == list and len(data) > 0:
+            if len(metadata) > 0:
                 for row in data:
-                    sheet_data.append(list(row.values()))
-                self.__sheet_append(spreadsheet_id, 0, sheet_data)
+                    row.update(metadata)
+            spreadsheet_id, just_created = self.get_file_handle(name)
+
+            if just_created:
+                fieldnames = list(data[0].keys())
+                sheet_data = [fieldnames]
+                self.__sheet_adjust_size(spreadsheet_id, 0, len(fieldnames))
+            else:
+                sheet_data = []
+            
+            for row in data:
+                sheet_data.append(list(row.values()))
+            self.__sheet_append(spreadsheet_id, 0, sheet_data)
