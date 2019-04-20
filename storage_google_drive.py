@@ -1,7 +1,6 @@
 import csv
 import os
 import time
-import json
 
 from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient import discovery
@@ -100,15 +99,13 @@ class StorageGoogleDrive():
         else:
             raise Exception('error: empty append data set')
         
-        requests = []
-        if total_rows > 1000:
-            requests.append({
+        requests = [{
                 "appendDimension": {
                     "sheetId": 0,
                     "dimension": "ROWS",
-                    "length": total_rows - 1000
+                    "length": total_rows
                 }
-            })
+            }]
         if total_columns > 26:
              requests.append({
                 "appendDimension": {
@@ -157,13 +154,4 @@ class StorageGoogleDrive():
                     sheet_data = []
                 for row in data:
                     sheet_data.append(list(row.values()))
-                print(json.dumps(sheet_data, sort_keys=True, indent=4))
                 self.__sheet_append(sheet_id, sheet_data)
-
-if __name__ == "__main__":
-    api = StorageGoogleDrive(
-        '1JCh2seqmxBrVfLMUEi1FjjA85M16i2rN', 'client_secrets.json', writers=['pmonteiro@newrelic.com']
-    )
-    #api.create_sheet('PAULO')
-    #api.get_sheet_id('TEST_SHEET1')
-    print('THE END')

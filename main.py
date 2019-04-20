@@ -41,22 +41,22 @@ def main():
         insights_storage.dump_metrics('Summary', [account_summary], metadata)
         google_storage.dump_metrics('SUMMARY', [account_summary], metadata)
 
-        # consolidate output based on master name
+        # consolidate detail apps output based on master name
         account_master = account['master_name']
 
         # dump APM metrics
         local_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
         insights_storage.dump_metrics('ApmDetails', apm_apps, metadata)
-        #google_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
+        google_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
 
         # dump Browser metrics
         local_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
-        insights_storage.dump_metrics('BrowserDetails', apm_apps, metadata)
+        insights_storage.dump_metrics('BrowserDetails', browser_apps, metadata)
         #google_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
 
         # dump Mobile metrics
         local_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
-        insights_storage.dump_metrics('MobileDetails', apm_apps, metadata)
+        insights_storage.dump_metrics('MobileDetails', mobile_apps, metadata)
         #google_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
 
 if __name__ == '__main__':
