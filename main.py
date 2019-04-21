@@ -76,7 +76,7 @@ def dump_metrics(config):
     if config['input_source'] == 'local':
         accounts = local_storage.get_accounts(config['local_account_list_path'])
     elif config['input_source'] == 'google':
-        accounts = google_storage.get_accounts(config['google_account_list_id'])
+        accounts = google_storage.get_accounts(config['google_account_list_id'], 'AccountList')
     else:
         accounts = []
 

@@ -5,58 +5,9 @@ import time
 from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient import discovery
 
+from google_sheets_helpers import *
+
 SHEET_DEFAULT_COLUMNS=26
-
-def sheet_value(x):
-    """ create the proper snippet to append data to a sheet depending on the value type """
-
-    if type(x) == str:
-        return {
-            "userEnteredValue": {
-                "stringValue": x
-            }
-        }
-    elif type(x) == bool:
-        return {
-            "userEnteredValue": {
-                "boolValue": x
-            }
-        }
-    elif type(x) == int:
-        return {
-            "userEnteredValue": {
-                "numberValue": x
-            }, 
-            "userEnteredFormat": {
-                "numberFormat": {
-                    "type": "NUMBER",
-                    "pattern": "#,##0"
-                }
-            }
-        }
-    elif type(x) == float and x > 40000:  # hack... only floats above 40K are dates
-        return {
-            "userEnteredValue": {
-                "numberValue": x
-            }, 
-            "userEnteredFormat": {
-                "numberFormat": {
-                    "type": "DATE"
-                }
-            }
-        }
-    else:
-        return {
-            "userEnteredValue": {
-                "numberValue": x
-            }, 
-            "userEnteredFormat": {
-                "numberFormat": {
-                    "type": "NUMBER",
-                    "pattern": "#,##0.00"
-                }
-            }
-        }
 
 class StorageGoogleDrive():
 
@@ -94,36 +45,22 @@ class StorageGoogleDrive():
 
         if object_id:
             if self.__writers:
-                body = {
-                    'role': 'writer',
-                    'type': 'user',
-                    'emailAddress': self.__writers,
-                }
+                body = {'role': 'writer', 'type': 'user', 'emailAddress': self.__writers}
                 self.__permissions.create(fileId=object_id, body=body).execute()
 
             if self.__readers:
-                body = {
-                    'role': 'reader',
-                    'type': 'user',
-                    'emailAddress': self.__readers,
-                }
+                body = {'role': 'reader', 'type': 'user', 'emailAddress': self.__readers}
                 self.__permissions.create(fileId=object_id, body=body).execute()
         
         return object_id
-
-    def __get_summary_pivot_request(self, spreadsheet_id, sheet_id, summary_pivot):
-        return ''
-
-    def __get_apm_pivot_request(self, spreadsheet_id, sheet_id, summary_pivot):
-        return ''
 
     def __get_object_id(self, object_type, object_name, parent_id):
         """ search for an object name / type under a parent id and return the id """
 
         assert object_type in StorageGoogleDrive.OBJECT_TYPES,\
         'error: unsuported object type'
-        mime_type = StorageGoogleDrive.OBJECT_TYPES[object_type]
 
+        mime_type = StorageGoogleDrive.OBJECT_TYPES[object_type]
         query = f"'{parent_id}' in parents and name = '{object_name}' and mimeType = '{mime_type}'"
         response = self.__files.list(q=query, spaces='drive', fields='files(id)').execute()
         files = response.get('files', [])
@@ -140,9 +77,10 @@ class StorageGoogleDrive():
 
         assert object_type in StorageGoogleDrive.OBJECT_TYPES,\
         'error: unsuported object type'
-        mime_type = StorageGoogleDrive.OBJECT_TYPES[object_type]
 
+        mime_type = StorageGoogleDrive.OBJECT_TYPES[object_type]
         object_id = self.__get_object_id(object_type, object_name, parent_id)
+
         if not object_id:
             body = {'name': object_name, 'mimeType': mime_type, 'parents': [parent_id]}
             response = self.__files.create(body=body).execute()
@@ -171,47 +109,29 @@ class StorageGoogleDrive():
 
         sheet_id = self.__get_sheet_id(spreadsheet_id, sheet_name)
         if not sheet_id:
-            requests = [{
-               "addSheet": {
-                    "properties": {
-                        "title": sheet_name
-                    }
-                }
-            }]
-
-            body = {"requests": requests}
+            body = {"requests": [add_sheet_request(sheet_name)]}
             response = self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
             sheet_id = \
                 response.get('replies', [{}])[0].get('addSheet', {}).get('properties', {}).get('sheetId', None)
-            self.__reduce_sheet_rows(spreadsheet_id, sheet_id)
+            self.__fit_sheet_rows(spreadsheet_id, sheet_id)
             just_created = True
         else:
             just_created = False
 
         return sheet_id, just_created
 
-    def __adjust_sheet_columns(self, spreadsheet_id, sheet_id, total_columns=SHEET_DEFAULT_COLUMNS):
-        """ set the total number of columns on a sheet """
+    def __fit_sheet_columns(self, spreadsheet_id, sheet_id, total_columns=SHEET_DEFAULT_COLUMNS):
+        """ set the total number of columns on the sheet """
 
         if total_columns > SHEET_DEFAULT_COLUMNS:
-            requests = [{
-                "appendDimension": {
-                    "sheetId": sheet_id,
-                    "dimension": "COLUMNS",
-                    "length": total_columns - SHEET_DEFAULT_COLUMNS
-                }
-            }]
+            requests = [
+                append_dimension_request(sheet_id, "COLUMNS", total_columns - SHEET_DEFAULT_COLUMNS)
+            ]
+
         elif total_columns < SHEET_DEFAULT_COLUMNS:
-            requests = [{
-                "deleteDimension": {
-                    "range": {
-                        "sheetId": sheet_id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 0,
-                        "endIndex": SHEET_DEFAULT_COLUMNS - total_columns
-                    }
-                }
-            }]
+            requests = [
+                delete_dimension_request(sheet_id, "COLUMNS", 0, SHEET_DEFAULT_COLUMNS - total_columns)
+            ]
         else:
             requests = None
         
@@ -219,43 +139,32 @@ class StorageGoogleDrive():
             body = {"requests": requests}
             self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
-    def __reduce_sheet_rows(self, spreadsheet_id, sheet_id):
+    def __fit_sheet_rows(self, spreadsheet_id, sheet_id):
         """ set the total number of rows to 1 """
 
-        requests = [{
-            "deleteDimension": {
-                "range": {
-                    "sheetId": sheet_id,
-                    "dimension": "ROWS",
-                    "startIndex": 1,
-                    "endIndex": 1001
-                }
-            }
-        }]
-        
+        requests = [
+            delete_dimension_request(sheet_id, "ROWS", 1, 1001)
+        ]
+
         body = {"requests": requests}
         self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
     def __append_dataset(self, spreadsheet_id, sheet_id, sheet_data=[]):
-        """ append new rows to a sheet """
+        """ append new rows to a sheet from a list (rows) of a list (columns) of values """
 
-        total_rows = len(sheet_data)
-        if total_rows == 0:
-            raise Exception('error: empty sheet data')
+        if len(sheet_data) > 0:
+            rows = [{"values": [cell_snippet(cell) for cell in row]} for row in sheet_data]
 
-        rows = [{"values": [sheet_value(cell) for cell in row]} for row in sheet_data]
-        requests = [{
-            "appendCells": {
-                "sheetId": sheet_id,
-                 "rows": rows,
-                    "fields": "*",
-            }
-        }]
+            requests = [
+                append_cells_request(sheet_id, rows)
+            ]
 
-        body = {"requests": requests}
-        self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+            body = {"requests": requests}
+            self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
     def get_handle(self, spreadsheet_name, sheet_name):
+        """ return a (spreadsheet,sheet) handle and a flag if just created """
+
         if not spreadsheet_name in self.__cache:
             spreadsheet_id, just_created = self.__create_object('spreadsheet', spreadsheet_name, self.output_folder_id)
             self.__cache.update({spreadsheet_name: spreadsheet_id})
@@ -270,8 +179,10 @@ class StorageGoogleDrive():
         
         return self.__cache[(spreadsheet_name,sheet_name)], just_created
 
-    def get_accounts(self, spreadsheet_id):
-        request = self.__spreadsheets.values().get(spreadsheetId=spreadsheet_id, range='AccountsList')
+    def get_accounts(self, spreadsheet_id, _range='Sheet1'):
+        """ return a list of accounts dictionaries """
+
+        request = self.__spreadsheets.values().get(spreadsheetId=spreadsheet_id, range=_range)
         response = request.execute()
 
         values = response.get('values', [])
@@ -284,6 +195,11 @@ class StorageGoogleDrive():
         return accounts
         
     def dump_metrics(self, name, data, metadata={}):
+        """ append the data to the spreadsheet/sheet decorating each row with optional metadata """
+
+        assert name.count('/') == 1,\
+        'error: invalid name. it must follow spreadsheet/sheet nomenclature'
+
         if type(data) == list and len(data) > 0:
             if len(metadata) > 0:
                 for row in data:
@@ -293,9 +209,9 @@ class StorageGoogleDrive():
             (spreadsheet_id, sheet_id), just_created = self.get_handle(spreadsheet_name, sheet_name)
 
             if just_created:
-                fieldnames = list(data[0].keys())
-                sheet_data = [fieldnames]
-                self.__adjust_sheet_columns(spreadsheet_id, sheet_id, len(fieldnames))
+                headers = list(data[0].keys())
+                sheet_data = [headers]
+                self.__fit_sheet_columns(spreadsheet_id, sheet_id, len(headers))
             else:
                 sheet_data = []
             
@@ -304,58 +220,10 @@ class StorageGoogleDrive():
 
             self.__append_dataset(spreadsheet_id, sheet_id, sheet_data)
 
-    def __get_sheet_format_requests(self, sheet_id):
-        return [
-            {
-                "setBasicFilter": {
-                    "filter": {
-                        "range": {
-                            "sheetId": sheet_id
-                        }
-                    }
-                }
-            },
-            {
-                "autoResizeDimensions": {
-                    "dimensions": {
-                        "sheetId": sheet_id,
-                        "dimension": "COLUMNS",
-                        "startIndex": 0
-                    }
-                }
-            },
-            {
-                "repeatCell": {
-                    "range": {
-                    "sheetId": sheet_id,
-                    "startRowIndex": 0,
-                    "endRowIndex": 1
-                    },
-                    "cell": {
-                        "userEnteredFormat": {
-                            "horizontalAlignment" : "CENTER",
-                            "textFormat": {
-                                "bold": True
-                            }
-                        }
-                    },
-                    "fields": "userEnteredFormat(textFormat,horizontalAlignment)"
-                }
-            },
-            {
-                "updateSheetProperties": {
-                    "properties": {
-                        "sheetId": sheet_id,
-                        "gridProperties": {
-                            "frozenRowCount": 1
-                        }
-                    },
-                    "fields": "gridProperties.frozenRowCount"
-                }
-            }
-        ]
 
     def format_spreadsheets(self, summary_pivot=None, apm_pivot=None):
+        """ format every spreadsheet create to enhance end-user experience """
+
         requests_queue = {}
         for k,v in iter(self.__cache.items()):
             if type(k) == tuple:
@@ -365,23 +233,26 @@ class StorageGoogleDrive():
                     requests_queue[spreadsheet_id] = []
 
                 if summary_pivot and sheet_name == 'SUMMARY':
-                    request = self.__get_summary_pivot_request(spreadsheet_id, sheet_id, summary_pivot)
-                    if requests:
+                    request = get_summary_pivot_request(spreadsheet_id, sheet_id, summary_pivot)
+                    if request:
                         requests_queue[spreadsheet_id].extend(request)
 
                 if apm_pivot and sheet_name == 'APM':
-                    requests = self.__get_apm_pivot_request(spreadsheet_id, sheet_id, apm_pivot)
-                    if requests:
+                    request = get_apm_pivot_request(spreadsheet_id, sheet_id, apm_pivot)
+                    if request:
                         requests_queue[spreadsheet_id].extend(request)
 
-                requests = self.__get_sheet_format_requests(sheet_id)
-                requests_queue[spreadsheet_id].extend(requests)
+                requests_queue[spreadsheet_id].extend([
+                    basic_filter_request(sheet_id),
+                    format_header_request(sheet_id),
+                    freeze_header_request(sheet_id),
+                    auto_resize_dimension_request(sheet_id)
+                ])
 
             else:
                 if not v in requests_queue:
                     requests_queue[v] = []
-                request = {"deleteSheet": {"sheetId": 0}}
-                requests_queue[v].append(request)
+                requests_queue[v].append(delete_sheet_request(0))
 
         for spreadsheet_id,requests in iter(requests_queue.items()):
             body = {"requests": requests}

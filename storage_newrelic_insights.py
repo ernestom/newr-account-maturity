@@ -16,7 +16,7 @@ class StorageNewRelicInsights():
         self.__url = f'https://insights-collector.newrelic.com/v1/accounts/{new_relic_account_id}/events'
 
     def get_accounts(self, name):
-        raise Exception('error: get_accounts not implemented on this class.')
+        raise Exception('error: get_accounts not implemented on StorageNewRelicInsights class.')
         
     def dump_metrics(self, event_type, data=[], metadata={}, max_retries=MAX_RETRIES):
         if type(data) == list and len(data) > 0:
