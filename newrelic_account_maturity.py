@@ -72,9 +72,9 @@ class NewRelicAccountMaturity():
             for policy in alerts_conditions:
                 conditions = policy['conditions']
                 if len(conditions) == 0:
-                    pass#self.__metrics['alerts_policies_without_conditions'] += 1
+                    pass # self.__metrics['alerts_policies_without_conditions'] += 1
                 else:
-                    #self.__metrics['alerts_policies_with_conditions'] += 1
+                    # self.__metrics['alerts_policies_with_conditions'] += 1
                     for condition in conditions:
                         # apm_app_metric, apm_kt_metric, browser_metric, mobile_metric
                         condition_type = condition['type']
@@ -110,8 +110,8 @@ class NewRelicAccountMaturity():
                 'language': apm_app['language'],
                 'conditions': self.entities_with_conditions.get(('apm_app_metric',id), 0),
                 'labels': self.apps_with_labels.get(id, 0),
-                'default_apdex': apm_app['settings']['app_apdex_threshold'] == 0.5,
-                'reporting': apm_app['reporting']
+                'default_apdex': int(apm_app['settings']['app_apdex_threshold'] == 0.5),
+                'reporting': int(apm_app['reporting'])
             })
 
             if not id in self.apps_with_labels:
@@ -145,31 +145,45 @@ class NewRelicAccountMaturity():
         return result_apps
 
     def get_mobile_metrics(self):
+        result_apps = []
         mobile_apps, _ = self.__account.mobile_applications()
         self.__metrics['mobile_total'] = len(mobile_apps)
         for mobile_app in mobile_apps:
+            id = mobile_app['id']
+            # summary = mobile_app.get('summary',{})
+            crash_summary = mobile_app.get('crash_summary',{})
+
+            result_apps.append({
+                'app_id': id,
+                'app_name': mobile_app['name'],
+                'conditions': self.entities_with_conditions.get(('mobile_metric',id), 0),
+                'supports_crash_data': int(crash_summary.get('supports_crash_data', False))
+            })
+
             if mobile_app['reporting']:
                 self.__metrics['mobile_reporting'] += 1
             else:
                 self.__metrics['mobile_non_reporting'] += 1
-
-            id = mobile_app['id']
+    
             if not ('mobile_metric',id) in self.entities_with_conditions:
                 self.__metrics['mobile_without_conditions'] += 1
             else:
                 self.__metrics['mobile_with_conditions'] += 1
-        return []
+
+        return result_apps
 
     def get_browser_metrics(self):
+        result_apps = []
         browser_apps, _ = self.__account.browser_applications()
         self.__metrics['browser_total'] = len(browser_apps)
         for browser_app in browser_apps:
             id = browser_app['id']
+
             if not ('browser_metric',id) in self.entities_with_conditions:
                 self.__metrics['browser_without_conditions'] += 1
             else:
                 self.__metrics['browser_with_conditions'] += 1
-        return []
+        return result_apps # to be implemented
 
     def get_alerts_policies_metrics(self, current_time):
         alerts_policies, _ = self.__account.alerts_policies()

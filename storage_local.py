@@ -11,7 +11,7 @@ class StorageLocal():
         if not os.path.exists(self.output_folder):
             os.mkdir(self.output_folder)
 
-    def get_file_handle(self, name):
+    def get_handle(self, name):
         if not name in self.files:
             handle = open(os.path.join(self.output_folder, name + '.csv'), 'w')
             self.files.update({name: handle})
@@ -30,7 +30,7 @@ class StorageLocal():
             if len(metadata) > 0:
                 for row in data:
                     row.update(metadata)
-            handle, just_created = self.get_file_handle(name)
+            handle, just_created = self.get_handle(name)
 
             fieldnames = data[0].keys()
             csv_writer = csv.DictWriter(handle, fieldnames=fieldnames)

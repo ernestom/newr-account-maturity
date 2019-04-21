@@ -111,13 +111,13 @@ def dump_metrics(config):
 
         # dump metrics to google storage
         if config['output_google']:
-            google_storage.dump_metrics('SUMMARY', [account_summary], metadata)
-            google_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
-            google_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
-            google_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
+            google_storage.dump_metrics('SUMMARY/SUMMARY', [account_summary], metadata)
+            google_storage.dump_metrics(account_master + '/APM', apm_apps, metadata)
+            google_storage.dump_metrics(account_master + '/BROWSER', browser_apps, metadata)
+            google_storage.dump_metrics(account_master + '/MOBILE', mobile_apps, metadata)
         
-        # dump metrics to insights storage, must be called at the very last as
-        # it will add an eventType attribute to every metric row. no deep copying folks
+        # dump metrics to insights storage 
+        # must be called at the very last as it adds an eventType attribute to every metric row
         if config['output_insights']:
             insights_storage.dump_metrics('Summary', [account_summary], metadata)
             insights_storage.dump_metrics('ApmDetails', apm_apps, metadata)

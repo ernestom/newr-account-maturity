@@ -8,7 +8,7 @@ from googleapiclient import discovery
 SHEET_DEFAULT_COLUMNS=26
 
 def sheet_value(x):
-    """ create the proper JSON to append data to a sheet depending on the value type """
+    """ create the proper snippet to append data to a sheet depending on the value type """
 
     if type(x) == str:
         return {
@@ -34,8 +34,7 @@ def sheet_value(x):
                 }
             }
         }
-    # ducktape hack... Only floats above 40K in my data are DATES
-    elif type(x) == float and x > 40000: 
+    elif type(x) == float and x > 40000:  # hack... only floats above 40K are dates
         return {
             "userEnteredValue": {
                 "numberValue": x
@@ -66,15 +65,14 @@ class StorageGoogleDrive():
         'spreadsheet': 'application/vnd.google-apps.spreadsheet'
     }
 
-    def __init__(self, folder_id, json_keyfile_name=None, writers=[], readers=[]):
-        self.files = {}
-        self.folder_id = folder_id
+    get_output_folder_name = lambda self: time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', time.localtime())
+
+    def __init__(self, folder_id, json_keyfile_name, writers=[], readers=[]):
+        self.__cache = {}
 
         self.__readers = readers
         self.__writers = writers
 
-        if not json_keyfile_name:
-            os.getenv('GOOGLE_SERVICE_ACCOUNT_KEYFILE_NAME', '')
         credentials = ServiceAccountCredentials.from_json_keyfile_name(
             json_keyfile_name,
             [
@@ -82,13 +80,16 @@ class StorageGoogleDrive():
                 'https://www.googleapis.com/auth/spreadsheets'
             ]
         )
-        self.__drive = discovery.build('drive', 'v3', credentials=credentials)
-        self.__sheets = discovery.build('sheets', 'v4', credentials=credentials)
+        drive = discovery.build('drive', 'v3', credentials=credentials)
+        sheets = discovery.build('sheets', 'v4', credentials=credentials)
 
-        output_folder = time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', time.localtime())
-        self.output_folder_id, _ = self.__create_object('folder', output_folder, folder_id)
+        self.__files = drive.files() # pylint: disable=no-member
+        self.__permissions = drive.permissions() # pylint: disable=no-member
+        self.__spreadsheets = sheets.spreadsheets() # pylint: disable=no-member
 
-    def __set_permissions(self, object_id=None):
+        self.output_folder_id, _ = self.__create_object('folder', self.get_output_folder_name(), folder_id)
+
+    def __set_permissions(self, object_id):
         """ set readers / writers permission on object id """
 
         if object_id:
@@ -98,7 +99,7 @@ class StorageGoogleDrive():
                     'type': 'user',
                     'emailAddress': self.__writers,
                 }
-                self.__drive.permissions().create(fileId=object_id, body=body).execute() # pylint: disable=no-member
+                self.__permissions.create(fileId=object_id, body=body).execute()
 
             if self.__readers:
                 body = {
@@ -106,20 +107,21 @@ class StorageGoogleDrive():
                     'type': 'user',
                     'emailAddress': self.__readers,
                 }
-                self.__drive.permissions().create(fileId=object_id, body=body).execute() # pylint: disable=no-member
+                self.__permissions.create(fileId=object_id, body=body).execute()
         
         return object_id
 
-    def __get_object_id(self, mime_type, object_name, parent_id):
-        """ return the id from the the object name """
+    def __get_object_id(self, object_type, object_name, parent_id):
+        """ search for an object name / type under a parent id and return the id """
 
-        response = self.__drive.files().list( # pylint: disable=no-member
-            q=f"'{parent_id}' in parents and name = '{object_name}' and mimeType = '{mime_type}'",
-            spaces='drive',
-            fields='files(id)'
-        ).execute()
+        assert object_type in StorageGoogleDrive.OBJECT_TYPES,\
+        'error: unsuported object type'
+        mime_type = StorageGoogleDrive.OBJECT_TYPES[object_type]
+
+        query = f"'{parent_id}' in parents and name = '{object_name}' and mimeType = '{mime_type}'"
+        response = self.__files.list(q=query, spaces='drive', fields='files(id)').execute()
         files = response.get('files', [])
-
+        
         if len(files) == 1:
             object_id = files[0].get('id', None)
         else:
@@ -130,26 +132,59 @@ class StorageGoogleDrive():
     def __create_object(self, object_type, object_name, parent_id):
         """ create a new object """
 
-        if not object_type in StorageGoogleDrive.OBJECT_TYPES:
-            raise Exception('error: unsuported object type')
-
+        assert object_type in StorageGoogleDrive.OBJECT_TYPES,\
+        'error: unsuported object type'
         mime_type = StorageGoogleDrive.OBJECT_TYPES[object_type]
-        object_id = self.__get_object_id(mime_type, object_name, parent_id)
+
+        object_id = self.__get_object_id(object_type, object_name, parent_id)
         if not object_id:
-            body = {
-                'name': object_name,
-                'mimeType': mime_type,
-                'parents': [parent_id]
-            }
-            response = self.__drive.files().create(body=body).execute() # pylint: disable=no-member
-            object_id = response['id']
+            body = {'name': object_name, 'mimeType': mime_type, 'parents': [parent_id]}
+            response = self.__files.create(body=body).execute()
+            object_id = response.get('id', None)
             just_created = True
         else:
             just_created = False
 
         return object_id, just_created
 
-    def __sheet_adjust_size(self, spreadsheet_id, sheet_id=0, total_columns=SHEET_DEFAULT_COLUMNS):
+    def __get_sheet_id(self, spreadsheet_id, sheet_name):
+        """ search for a sheet name in a spreadsheet id and return the id """
+
+        response = self.__spreadsheets.get(spreadsheetId=spreadsheet_id).execute()
+        sheets = response.get('sheets', [])
+        sheets = [k for i,k in enumerate(sheets) if k.get('name', None) == sheet_name]
+        if len(sheets) == 1:
+            sheet_id = sheets[0].get('properties', {}).get('sheetId', None)
+        else:
+            sheet_id = None
+
+        return sheet_id
+
+    def __create_sheet(self, spreadsheet_id, sheet_name):
+        """ create a new sheet """
+
+        sheet_id = self.__get_sheet_id(spreadsheet_id, sheet_name)
+        if not sheet_id:
+            requests = [{
+               "addSheet": {
+                    "properties": {
+                        "title": sheet_name
+                    }
+                }
+            }]
+
+            body = {"requests": requests}
+            response = self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+            sheet_id = \
+                response.get('replies', [{}])[0].get('addSheet', {}).get('properties', {}).get('sheetId', None)
+            self.__reduce_sheet_rows(spreadsheet_id, sheet_id)
+            just_created = True
+        else:
+            just_created = False
+
+        return sheet_id, just_created
+
+    def __adjust_sheet_columns(self, spreadsheet_id, sheet_id, total_columns=SHEET_DEFAULT_COLUMNS):
         """ set the total number of columns on a sheet """
 
         if total_columns > SHEET_DEFAULT_COLUMNS:
@@ -176,10 +211,26 @@ class StorageGoogleDrive():
         
         if requests:
             body = {"requests": requests}
-            spreadsheets = self.__sheets.spreadsheets() # pylint: disable=no-member
-            spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+            self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
-    def __sheet_append(self, spreadsheet_id, sheet_id=0, sheet_data=[]):
+    def __reduce_sheet_rows(self, spreadsheet_id, sheet_id):
+        """ set the total number of rows to 1 """
+
+        requests = [{
+            "deleteDimension": {
+                "range": {
+                    "sheetId": sheet_id,
+                    "dimension": "ROWS",
+                    "startIndex": 1,
+                    "endIndex": 1001
+                }
+            }
+        }]
+        
+        body = {"requests": requests}
+        self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+
+    def __append_dataset(self, spreadsheet_id, sheet_id, sheet_data=[]):
         """ append new rows to a sheet """
 
         total_rows = len(sheet_data)
@@ -196,43 +247,54 @@ class StorageGoogleDrive():
         }]
 
         body = {"requests": requests}
-        spreadsheets = self.__sheets.spreadsheets() # pylint: disable=no-member
-        spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
+        self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
-    def get_file_handle(self, name):
-        if not name in self.files:
-            spreadsheet_id, just_created = self.__create_object('spreadsheet', name, self.output_folder_id)
-            self.files.update({name: spreadsheet_id})
+    def get_handle(self, spreadsheet_name, sheet_name):
+        if not spreadsheet_name in self.__cache:
+            spreadsheet_id, just_created = self.__create_object('spreadsheet', spreadsheet_name, self.output_folder_id)
+            self.__cache.update({spreadsheet_name: spreadsheet_id})
+        else:
+            spreadsheet_id = self.__cache[spreadsheet_name]
+
+        if not (spreadsheet_name, sheet_name) in self.__cache:
+            sheet_id, just_created = self.__create_sheet(spreadsheet_id, sheet_name)
+            self.__cache.update({(spreadsheet_name,sheet_name): (spreadsheet_id,sheet_id)})
         else:
             just_created = False
-        return self.files[name], just_created
+        
+        return self.__cache[(spreadsheet_name,sheet_name)], just_created
 
     def get_accounts(self, spreadsheet_id):
         spreadsheets = self.__sheets.spreadsheets() # pylint: disable=no-member
         request = spreadsheets.values().get(spreadsheetId=spreadsheet_id, range='AccountsList')
         response = request.execute()
+
         values = response.get('values', [])
         accounts = []
         if len(values) > 1:
             headers, rows = values[0], values[1:]
             for row in rows:
                 accounts.append({headers[k]:v for k,v in enumerate(row)})
+    
         return accounts
         
-    def dump_metrics(self, name, data=[], metadata={}):
+    def dump_metrics(self, name, data, metadata={}):
         if type(data) == list and len(data) > 0:
             if len(metadata) > 0:
                 for row in data:
                     row.update(metadata)
-            spreadsheet_id, just_created = self.get_file_handle(name)
+
+            spreadsheet_name, sheet_name = name.split('/')
+            (spreadsheet_id, sheet_id), just_created = self.get_handle(spreadsheet_name, sheet_name)
 
             if just_created:
                 fieldnames = list(data[0].keys())
                 sheet_data = [fieldnames]
-                self.__sheet_adjust_size(spreadsheet_id, 0, len(fieldnames))
+                self.__adjust_sheet_columns(spreadsheet_id, sheet_id, len(fieldnames))
             else:
                 sheet_data = []
             
             for row in data:
                 sheet_data.append(list(row.values()))
-            self.__sheet_append(spreadsheet_id, 0, sheet_data)
+
+            self.__append_dataset(spreadsheet_id, sheet_id, sheet_data)
