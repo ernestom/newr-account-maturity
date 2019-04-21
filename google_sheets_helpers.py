@@ -1,5 +1,9 @@
 #!env/bin/python
 
+SHEET1_SHEET_ID=0
+SHEET_DEFAULT_COLUMNS=26
+SHEET_DEFAULT_ROWS=1000
+
 def cell_snippet(x):
     ''' create the proper snippet to append data to a sheet depending on the value type '''
 

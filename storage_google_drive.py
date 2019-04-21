@@ -7,7 +7,7 @@ from googleapiclient import discovery
 
 from google_sheets_helpers import *
 
-SHEET_DEFAULT_COLUMNS=26
+
 
 class StorageGoogleDrive():
 
@@ -140,10 +140,10 @@ class StorageGoogleDrive():
             self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
     def __fit_sheet_rows(self, spreadsheet_id, sheet_id):
-        """ set the total number of rows to 1 """
+        """ set the total number of rows to 1 by removing rows 1..999 """
 
         requests = [
-            delete_dimension_request(sheet_id, "ROWS", 1, 1001)
+            delete_dimension_request(sheet_id, "ROWS", 0, SHEET_DEFAULT_ROWS)
         ]
 
         body = {"requests": requests}
@@ -222,7 +222,7 @@ class StorageGoogleDrive():
 
 
     def format_spreadsheets(self, summary_pivot=None, apm_pivot=None):
-        """ format every spreadsheet create to enhance end-user experience """
+        """ format every spreadsheet / sheet created for a better end-user experience """
 
         requests_queue = {}
         for k,v in iter(self.__cache.items()):
@@ -250,9 +250,10 @@ class StorageGoogleDrive():
                 ])
 
             else:
+                spreadsheet_id = v
                 if not v in requests_queue:
-                    requests_queue[v] = []
-                requests_queue[v].append(delete_sheet_request(0))
+                    requests_queue[spreadsheet_id] = []
+                requests_queue[spreadsheet_id].append(delete_sheet_request(SHEET1_SHEET_ID))
 
         for spreadsheet_id,requests in iter(requests_queue.items()):
             body = {"requests": requests}
