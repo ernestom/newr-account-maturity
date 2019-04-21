@@ -111,6 +111,12 @@ class StorageGoogleDrive():
         
         return object_id
 
+    def __get_summary_pivot_request(self, spreadsheet_id, sheet_id, summary_pivot):
+        return ''
+
+    def __get_apm_pivot_request(self, spreadsheet_id, sheet_id, summary_pivot):
+        return ''
+
     def __get_object_id(self, object_type, object_name, parent_id):
         """ search for an object name / type under a parent id and return the id """
 
@@ -265,8 +271,7 @@ class StorageGoogleDrive():
         return self.__cache[(spreadsheet_name,sheet_name)], just_created
 
     def get_accounts(self, spreadsheet_id):
-        spreadsheets = self.__sheets.spreadsheets() # pylint: disable=no-member
-        request = spreadsheets.values().get(spreadsheetId=spreadsheet_id, range='AccountsList')
+        request = self.__spreadsheets.values().get(spreadsheetId=spreadsheet_id, range='AccountsList')
         response = request.execute()
 
         values = response.get('values', [])
@@ -298,3 +303,86 @@ class StorageGoogleDrive():
                 sheet_data.append(list(row.values()))
 
             self.__append_dataset(spreadsheet_id, sheet_id, sheet_data)
+
+    def __get_sheet_format_requests(self, sheet_id):
+        return [
+            {
+                "setBasicFilter": {
+                    "filter": {
+                        "range": {
+                            "sheetId": sheet_id
+                        }
+                    }
+                }
+            },
+            {
+                "autoResizeDimensions": {
+                    "dimensions": {
+                        "sheetId": sheet_id,
+                        "dimension": "COLUMNS",
+                        "startIndex": 0
+                    }
+                }
+            },
+            {
+                "repeatCell": {
+                    "range": {
+                    "sheetId": sheet_id,
+                    "startRowIndex": 0,
+                    "endRowIndex": 1
+                    },
+                    "cell": {
+                        "userEnteredFormat": {
+                            "horizontalAlignment" : "CENTER",
+                            "textFormat": {
+                                "bold": True
+                            }
+                        }
+                    },
+                    "fields": "userEnteredFormat(textFormat,horizontalAlignment)"
+                }
+            },
+            {
+                "updateSheetProperties": {
+                    "properties": {
+                        "sheetId": sheet_id,
+                        "gridProperties": {
+                            "frozenRowCount": 1
+                        }
+                    },
+                    "fields": "gridProperties.frozenRowCount"
+                }
+            }
+        ]
+
+    def format_spreadsheets(self, summary_pivot=None, apm_pivot=None):
+        requests_queue = {}
+        for k,v in iter(self.__cache.items()):
+            if type(k) == tuple:
+                (_,sheet_name), (spreadsheet_id,sheet_id) = k, v
+
+                if not spreadsheet_id in requests_queue:
+                    requests_queue[spreadsheet_id] = []
+
+                if summary_pivot and sheet_name == 'SUMMARY':
+                    request = self.__get_summary_pivot_request(spreadsheet_id, sheet_id, summary_pivot)
+                    if requests:
+                        requests_queue[spreadsheet_id].extend(request)
+
+                if apm_pivot and sheet_name == 'APM':
+                    requests = self.__get_apm_pivot_request(spreadsheet_id, sheet_id, apm_pivot)
+                    if requests:
+                        requests_queue[spreadsheet_id].extend(request)
+
+                requests = self.__get_sheet_format_requests(sheet_id)
+                requests_queue[spreadsheet_id].extend(requests)
+
+            else:
+                if not v in requests_queue:
+                    requests_queue[v] = []
+                request = {"deleteSheet": {"sheetId": 0}}
+                requests_queue[v].append(request)
+
+        for spreadsheet_id,requests in iter(requests_queue.items()):
+            body = {"requests": requests}
+            self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()

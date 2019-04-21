@@ -123,7 +123,9 @@ def dump_metrics(config):
             insights_storage.dump_metrics('ApmDetails', apm_apps, metadata)
             insights_storage.dump_metrics('BrowserDetails', browser_apps, metadata)
             insights_storage.dump_metrics('MobileDetails', mobile_apps, metadata)
- 
+
+    if config['output_google']:
+        google_storage.format_spreadsheets()
 
 def main():
     #try:

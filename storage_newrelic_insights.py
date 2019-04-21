@@ -18,12 +18,11 @@ class StorageNewRelicInsights():
     def get_accounts(self, name):
         raise Exception('error: get_accounts not implemented on this class.')
         
-    def dump_metrics(self, name, data=[], metadata={}, max_retries=MAX_RETRIES):
+    def dump_metrics(self, event_type, data=[], metadata={}, max_retries=MAX_RETRIES):
         if type(data) == list and len(data) > 0:
-            if len(metadata) > 0:
-                for row in data:
-                    row.update({'eventType': name})
-                    row.update(metadata)
+            for row in data:
+                row.update({'eventType': event_type})
+                row.update(metadata)
             for i in range(0, len(data), StorageNewRelicInsights.INSIGHTS_MAX_EVENTS):
                 data_chunk = data[i:i+StorageNewRelicInsights.INSIGHTS_MAX_EVENTS]
                 succeeded = False
