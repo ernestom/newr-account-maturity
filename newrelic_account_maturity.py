@@ -3,30 +3,23 @@ import time
 
 from newrelic_account import NewRelicAccount
 
+DEFAULT_APDEX = 0.5
+
 class NewRelicAccountMaturity():
     "calculates maturity metrics using the New Relic REST API"
 
     __WEEK_TIME = 60*60*24*7
     __MONTH_TIME = __WEEK_TIME * 4.5
     __METRIC_NAMES = [
-        'alerts_policies_a_month_old',
-        'alerts_policies_a_week_old',
-        'alerts_policies_per_condition',
-        'alerts_policies_per_policy',
-        'alerts_policies_per_target',
-        #'alerts_policies_with_conditions',
-        #'alerts_policies_without_conditions',
+        'users_total',
+        'apm_total',
+        'browser_total',
+        'mobile_total',
         'alerts_policies_total',
-        'labels_not_used',
-        'labels_total',
-        'apm_conditions',
-        'apm_labels',
-        'apm_concurrent_instances',
+
         'apm_default_apdex',
-        'apm_dotnet',
+        'apm_dotnet', #10
         'apm_go',
-        'apm_hosts',
-        'apm_instances',
         'apm_java',
         'apm_nodejs',
         'apm_php',
@@ -35,21 +28,35 @@ class NewRelicAccountMaturity():
         'apm_ruby',
         'apm_reporting',
         'apm_non_reporting',
-        'apm_with_conditions',
+        'apm_with_conditions', #20
         'apm_without_conditions',
+        'apm_with_deployments',
+        'apm_without_deployments',
         'apm_with_labels',
         'apm_without_labels',
-        'apm_total',
-        'browser_total',
+
         'browser_with_conditions',
         'browser_without_conditions',
+
         'mobile_reporting',
         'mobile_non_reporting',
-        'mobile_with_conditions',
+        'mobile_with_conditions', #30
         'mobile_without_conditions',
-        'mobile_total',
-        'get_metadata_duration',
-        'users_total'
+
+        'alerts_policies_a_month_old',
+        'alerts_policies_a_week_old',
+        'alerts_policies_per_condition',
+        'alerts_policies_per_policy',
+        'alerts_policies_per_target',
+
+        'apm_conditions',
+        'apm_deployments',
+        'apm_labels',
+        'apm_hosts', #40
+        'apm_instances',
+        'apm_concurrent_instances',
+
+        'get_metadata_duration'
     ]
 
     def __init__(self, rest_api_key=''):
@@ -61,20 +68,34 @@ class NewRelicAccountMaturity():
         for metric_name in NewRelicAccountMaturity.__METRIC_NAMES:
             self.__metrics[metric_name] = 0
 
-    def get_users_metrics(self):
-        users, _ = self.__account.users()
-        self.__metrics['users_total'] = len(users)
+    def cache_apps_with_deployments(self):
+        self.apps_with_deployments = {}
+        app_deployments, ok = self.__account.application_deployments()
+        if ok:
+            for deployment in app_deployments:
+                entity = deployment['id']
+                total_deployments = len(deployment['deployments'])
+                if total_deployments:
+                    self.apps_with_deployments[entity] = total_deployments
 
-    def get_entities_with_conditions(self):
+    def cache_apps_with_labels(self):
+        self.apps_with_labels = {}
+        labels, ok = self.__account.labels()
+        if ok:
+            for label in labels:
+                entities = label['links']['applications']
+                if entities:
+                    for entity in entities:
+                        self.apps_with_labels[entity] = \
+                            self.apps_with_labels.get(entity, 0) + 1
+
+    def cache_entities_with_conditions(self):
         self.entities_with_conditions = {}
         alerts_conditions, ok = self.__account.alerts_conditions()
         if ok:
             for policy in alerts_conditions:
                 conditions = policy['conditions']
-                if len(conditions) == 0:
-                    pass # self.__metrics['alerts_policies_without_conditions'] += 1
-                else:
-                    # self.__metrics['alerts_policies_with_conditions'] += 1
+                if conditions:
                     for condition in conditions:
                         # apm_app_metric, apm_kt_metric, browser_metric, mobile_metric
                         condition_type = condition['type']
@@ -83,36 +104,34 @@ class NewRelicAccountMaturity():
                             self.entities_with_conditions[(condition_type,entity)] = \
                                 self.entities_with_conditions.get((condition_type,entity), 0) + 1
 
-    def get_apps_with_labels(self):
-        self.apps_with_labels = {}
-        labels, ok = self.__account.labels()
-        if ok:
-            self.__metrics['labels_total'] = len(labels)
-            for label in labels:
-                entities = label['links']['applications']
-                if len(entities) == 0:
-                    self.__metrics['labels_not_used'] += 1
-                else:
-                    for entity in entities:
-                        self.apps_with_labels[entity] = \
-                            self.apps_with_labels.get(entity, 0) + 1
+    def get_users_metrics(self):
+        users, _ = self.__account.users()
+        self.__metrics['users_total'] = len(users)
 
     def get_apm_metrics(self):
         result_apps = []
         apm_apps, _ = self.__account.apm_applications()
         for apm_app in apm_apps:
             id = apm_app['id']
-            self.__metrics['apm_total'] += 1
 
             result_apps.append({
-                'app_id': apm_app['id'],
+                'app_id': id,
                 'app_name': apm_app['name'],
                 'language': apm_app['language'],
                 'conditions': self.entities_with_conditions.get(('apm_app_metric',id), 0),
+                'deployments': self.apps_with_deployments.get(id, 0),
                 'labels': self.apps_with_labels.get(id, 0),
-                'default_apdex': int(apm_app['settings']['app_apdex_threshold'] == 0.5),
+                'default_apdex': int(apm_app['settings']['app_apdex_threshold'] == DEFAULT_APDEX),
                 'reporting': int(apm_app['reporting'])
             })
+
+            self.__metrics['apm_total'] += 1
+
+            if not id in self.apps_with_deployments:
+                self.__metrics['apm_without_deployments'] += 1
+            else:
+                self.__metrics['apm_with_deployments'] += 1
+                self.__metrics['apm_deployments'] += self.apps_with_deployments[id]
 
             if not id in self.apps_with_labels:
                 self.__metrics['apm_without_labels'] += 1
@@ -131,13 +150,12 @@ class NewRelicAccountMaturity():
 
             if apm_app['reporting']:
                 self.__metrics['apm_reporting'] += 1
+
                 summary = apm_app['application_summary']
                 self.__metrics['apm_hosts'] += summary['host_count']
-                self.__metrics['apm_instances'] += \
-                    summary.get('instance_count', 0)
-                self.__metrics['apm_concurrent_instances'] += \
-                    summary.get('concurrent_instance_count', 0)
-                if summary['apdex_target'] == 0.5:
+                self.__metrics['apm_instances'] += summary.get('instance_count', 0)
+                self.__metrics['apm_concurrent_instances'] += summary.get('concurrent_instance_count', 0)
+                if summary['apdex_target'] == DEFAULT_APDEX:
                     self.__metrics['apm_default_apdex'] += 1
             else:
                 self.__metrics['apm_non_reporting'] += 1
@@ -207,8 +225,9 @@ class NewRelicAccountMaturity():
     def metrics(self):
         start_time = time.time()
         self.reset_metrics()
-        self.get_apps_with_labels()
-        self.get_entities_with_conditions()
+        self.cache_apps_with_deployments()
+        self.cache_apps_with_labels()
+        self.cache_entities_with_conditions()
         apm_apps = self.get_apm_metrics()
         browser_apps = self.get_browser_metrics()
         mobile_apps = self.get_mobile_metrics()

@@ -154,7 +154,7 @@ class StorageGoogleDrive():
     def __append_dataset(self, spreadsheet_id, sheet_id, sheet_data=[]):
         """ append new rows to a sheet from a list (rows) of a list (columns) of values """
 
-        if len(sheet_data) > 0:
+        if sheet_data:
             rows = [{"values": [cell_snippet(cell) for cell in row]} for row in sheet_data]
 
             requests = [
@@ -202,7 +202,7 @@ class StorageGoogleDrive():
         assert name.count('/') == 1,\
         'error: invalid name. it must follow spreadsheet/sheet nomenclature'
 
-        if type(data) == list and len(data) > 0:
+        if type(data) == list and data:
             spreadsheet_name, sheet_name = name.split('/')
             (spreadsheet_id, sheet_id), just_created = self.get_handle(spreadsheet_name, sheet_name)
 

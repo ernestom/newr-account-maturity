@@ -33,7 +33,7 @@ class StorageLocal():
             return list(row for row in csv_reader) 
         
     def dump_metrics(self, name, data=[]):
-        if type(data) == list and len(data) > 0:
+        if type(data) == list and data:
             handle, just_created = self.get_handle(name)
             csv_writer = csv.DictWriter(handle, fieldnames=data[0].keys())
             if just_created:

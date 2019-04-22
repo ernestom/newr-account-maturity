@@ -4,6 +4,7 @@ import os
 import requests
 import sys
 import urllib.parse as urlparse
+from datetime import datetime, date, timedelta
 
 MAX_PAGES = 200 # max number of pages to fetch on a paginating endpoint
 MAX_RETRIES = 5 # max number of requests before giving up
@@ -25,16 +26,33 @@ def paginating_next_url(response):
             url = None
     return url
 
-def a_month_recent_next_url(response):
+
+def deployments_next_url(response):
     """ looks for a next link in the response to get next url """
 
     url = response.links.get('next', {}).get('url', None)
+    deployments = response.json().get('deployments', [])
+    if not deployments:
+        url = None
+    
+    if url:
+        a_month_ago = (datetime.today() - timedelta(days=30)).timestamp()
+        timestamp = deployments[-1].get('timestamp', None)
+        if not timestamp:
+            url = None
+
+    if url:
+        timestamp = datetime.strptime(timestamp, '%Y-%m-%dT%H:%M:%S%z').timestamp()
+        if timestamp < a_month_ago:
+            url = None
+
     if url:
         parsed = urlparse.urlparse(url)
         page = int(urlparse.parse_qs(parsed.query)['page'][0])
         if page > MAX_PAGES:
             url = None
     return url
+
 
 class NewRelicRestAPI():
     """ Facade to New Relic REST API LIST endpoints """
@@ -58,7 +76,7 @@ class NewRelicRestAPI():
     },
     'application_deployments': {
         'url': 'https://api.newrelic.com/v2/applications/{}/deployments.json',
-        'next_url': a_month_recent_next_url,
+        'next_url': deployments_next_url,
         'result_set_name': 'deployments'
     },
     'mobile_applications': {

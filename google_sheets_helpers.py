@@ -150,20 +150,45 @@ def summary_pivot_request(sheet_id, pivot_sheet_id):
     ]
     values = [
         {
-            'sourceColumnOffset': 32,
+            'sourceColumnOffset': 4,
+            'summarizeFunction': 'SUM',
+            'name': 'Users Total'
+        },
+        {
+            'sourceColumnOffset': 5,
             'summarizeFunction': 'SUM',
             'name': 'APM Total'
         },
         {
-            'sourceColumnOffset': 30,
+            'sourceColumnOffset': 20,
             'summarizeFunction': 'SUM',
-            'name': 'APM w/ Labels'
+            'name': 'w/ Conditions'
         },
         {
-            'sourceColumnOffset': 28,
+            'sourceColumnOffset': 22,
             'summarizeFunction': 'SUM',
-            'name': 'APM w/ Conditions'
-        }  
+            'name': 'w/ Deployments'
+        },
+        {
+            'sourceColumnOffset': 24,
+            'summarizeFunction': 'SUM',
+            'name': 'w/ Labels'
+        },
+        {
+            'sourceColumnOffset': 6,
+            'summarizeFunction': 'SUM',
+            'name': 'Browser Total'
+        },
+        {
+            'sourceColumnOffset': 7,
+            'summarizeFunction': 'SUM',
+            'name': 'Mobile Total'
+        },
+        {
+            'sourceColumnOffset': 8,
+            'summarizeFunction': 'SUM',
+            'name': 'Policies Total'
+        }
     ]
 
     return pivot_request(sheet_id, pivot_sheet_id, rows=rows, columns=[], values=values)
@@ -186,17 +211,22 @@ def apm_pivot_request(sheet_id, pivot_sheet_id):
         {
             'sourceColumnOffset': 4,
             'summarizeFunction': 'COUNT',
-            'name': 'APM Total'
+            'name': 'Total APM'
         },
         {
             'sourceColumnOffset': 7,
             'summarizeFunction': 'SUM',
-            'name': 'Conditions Total'
+            'name': 'Total Conditions'
         },
         {
             'sourceColumnOffset': 8,
             'summarizeFunction': 'SUM',
-            'name': 'Labels Total'
+            'name': 'Total Deployments'
+        },
+        {
+            'sourceColumnOffset': 9,
+            'summarizeFunction': 'SUM',
+            'name': 'Total Labels'
         }  
     ]
 

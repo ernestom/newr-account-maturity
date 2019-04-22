@@ -1,6 +1,7 @@
 #!env/bin/python
 import json
 import sys
+from datetime import date, timedelta
 
 from newrelic_rest_api import NewRelicRestAPI
 
@@ -96,7 +97,7 @@ class NewRelicAccount():
                 if ok:
                     result.append({
                         'id': entity_id,
-                        'data': application_deployments
+                        'deployments': application_deployments
                     })
                 else:
                     result = []

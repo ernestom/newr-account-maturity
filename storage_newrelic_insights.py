@@ -32,7 +32,7 @@ class StorageNewRelicInsights():
         raise Exception('error: get_accounts not implemented on StorageNewRelicInsights class.')
         
     def dump_metrics(self, event_type, data=[], max_retries=MAX_RETRIES):
-        if type(data) == list and len(data) > 0:
+        if type(data) == list and data:
             events = self.__get_events(event_type, data)
 
             for i in range(0, len(events), StorageNewRelicInsights.INSIGHTS_MAX_EVENTS):
