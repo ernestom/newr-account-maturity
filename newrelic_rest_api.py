@@ -76,7 +76,7 @@ class NewRelicRestAPI():
     },
     'application_deployments': {
         'url': 'https://api.newrelic.com/v2/applications/{}/deployments.json',
-        'next_url': deployments_next_url,
+        # 'next_url': deployments_next_url,
         'result_set_name': 'deployments'
     },
     'mobile_applications': {

@@ -1,7 +1,6 @@
 #!env/bin/python
 import json
 import sys
-from datetime import date, timedelta
 
 from newrelic_rest_api import NewRelicRestAPI
 

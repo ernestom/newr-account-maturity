@@ -56,6 +56,45 @@ def cell_snippet(x):
         }
 
 
+def pivot_table_snippet(sheet_id, pivot, headers):
+    """ create a pivotTable snippet from a pivot definition and headers list """
+
+    rows = []
+    for row in pivot.get('rows', []):
+        rows.append({
+            'sourceColumnOffset': headers.index(row),
+            'showTotals': True,
+            'sortOrder': 'ASCENDING'           
+        })
+
+    columns = []
+    for column in pivot.get('columns', []):
+        columns.append({
+            'sourceColumnOffset': headers.index(column),
+            'showTotals': True,
+            'sortOrder': 'ASCENDING'           
+        })
+
+    values = []
+    for value, function in iter(pivot.get('values', {}).items()):
+        values.append({
+            'sourceColumnOffset': headers.index(value),
+            'summarizeFunction': function
+        })
+
+    pivot_table = {
+        'source': {
+            'sheetId': sheet_id
+        },
+        'rows': rows,
+        'columns': columns,
+        'values': values,
+        'valueLayout': 'HORIZONTAL'
+    }
+
+    return pivot_table
+
+
 def add_sheet_request(title):
     return {
         'addSheet': {
@@ -107,22 +146,14 @@ def append_cells_request(sheet_id, rows):
     }
 
 
-def pivot_request(sheet_id, pivot_sheet_id, rows=[], columns=[], values=[]):
+def pivot_request(pivot_sheet_id, pivot_table):
     return {
         'updateCells': {
             'rows': [
                 {
                     'values': [
                         {
-                            'pivotTable': {
-                                'source': {
-                                    'sheetId': sheet_id
-                                },
-                                'rows': rows,
-                                'columns': columns,
-                                'values': values,
-                                'valueLayout': 'HORIZONTAL'
-                            }
+                            'pivotTable': pivot_table
                         }
                     ]
                 }
@@ -133,109 +164,6 @@ def pivot_request(sheet_id, pivot_sheet_id, rows=[], columns=[], values=[]):
             'fields': 'pivotTable'
         }
     }
-
-
-def summary_pivot_request(sheet_id, pivot_sheet_id, headers, pivot):
-    rows = [
-        {
-            'sourceColumnOffset': 0,
-            'showTotals': True,
-            'sortOrder': 'ASCENDING'
-        },
-        {
-            'sourceColumnOffset': 2,
-            'showTotals': True,
-            'sortOrder': 'ASCENDING'
-        }   
-    ]
-    values = [
-        {
-            'sourceColumnOffset': 4,
-            'summarizeFunction': 'SUM',
-            'name': 'Users Total'
-        },
-        {
-            'sourceColumnOffset': 5,
-            'summarizeFunction': 'SUM',
-            'name': 'APM Total'
-        },
-        {
-            'sourceColumnOffset': 20,
-            'summarizeFunction': 'SUM',
-            'name': 'w/ Conditions'
-        },
-        {
-            'sourceColumnOffset': 22,
-            'summarizeFunction': 'SUM',
-            'name': 'w/ Deployments'
-        },
-        {
-            'sourceColumnOffset': 24,
-            'summarizeFunction': 'SUM',
-            'name': 'w/ Labels'
-        },
-        {
-            'sourceColumnOffset': 6,
-            'summarizeFunction': 'SUM',
-            'name': 'Browser Total'
-        },
-        {
-            'sourceColumnOffset': 7,
-            'summarizeFunction': 'SUM',
-            'name': 'Mobile Total'
-        },
-        {
-            'sourceColumnOffset': 8,
-            'summarizeFunction': 'SUM',
-            'name': 'Policies Total'
-        }
-    ]
-
-    return pivot_request(sheet_id, pivot_sheet_id, rows=rows, columns=[], values=values)
-
-
-def apm_pivot_request(sheet_id, pivot_sheet_id, headers, pivot):
-    rows = [
-        {
-            'sourceColumnOffset': 6,
-            'showTotals': True,
-            'sortOrder': 'ASCENDING'
-        },
-        {
-            'sourceColumnOffset': 2,
-            'showTotals': True,
-            'sortOrder': 'ASCENDING'
-        },
-        {
-            'sourceColumnOffset': 5,
-            'showTotals': True,
-            'sortOrder': 'ASCENDING'
-        },  
-    ]
-    values = [
-        {
-            'sourceColumnOffset': 4,
-            'summarizeFunction': 'COUNT',
-            'name': 'Total APM'
-        },
-        {
-            'sourceColumnOffset': 7,
-            'summarizeFunction': 'SUM',
-            'name': 'Total Conditions'
-        },
-        {
-            'sourceColumnOffset': 8,
-            'summarizeFunction': 'SUM',
-            'name': 'Total Deployments'
-        },
-        {
-            'sourceColumnOffset': 9,
-            'summarizeFunction': 'SUM',
-            'name': 'Total Labels'
-        }  
-    ]
-
-    return pivot_request(sheet_id, pivot_sheet_id, rows=rows, columns=[], values=values)
 
 
 def basic_filter_request(sheet_id):
@@ -308,3 +236,60 @@ def auto_resize_dimension_request(sheet_id, dimension='COLUMNS'):
             }
         }
     }
+
+
+"""
+    rows = [
+        {
+            'sourceColumnOffset': 0,
+            'showTotals': True,
+            'sortOrder': 'ASCENDING'
+        },
+        {
+            'sourceColumnOffset': 2,
+            'showTotals': True,
+            'sortOrder': 'ASCENDING'
+        }   
+    ]
+    values = [
+        {
+            'sourceColumnOffset': 4,
+            'summarizeFunction': 'SUM',
+            'name': 'Users Total'
+        },
+        {
+            'sourceColumnOffset': 5,
+            'summarizeFunction': 'SUM',
+            'name': 'APM Total'
+        },
+        {
+            'sourceColumnOffset': 20,
+            'summarizeFunction': 'SUM',
+            'name': 'w/ Conditions'
+        },
+        {
+            'sourceColumnOffset': 22,
+            'summarizeFunction': 'SUM',
+            'name': 'w/ Deployments'
+        },
+        {
+            'sourceColumnOffset': 24,
+            'summarizeFunction': 'SUM',
+            'name': 'w/ Labels'
+        },
+        {
+            'sourceColumnOffset': 6,
+            'summarizeFunction': 'SUM',
+            'name': 'Browser Total'
+        },
+        {
+            'sourceColumnOffset': 7,
+            'summarizeFunction': 'SUM',
+            'name': 'Mobile Total'
+        },
+        {
+            'sourceColumnOffset': 8,
+            'summarizeFunction': 'SUM',
+            'name': 'Policies Total'
+        }
+"""

@@ -1,6 +1,7 @@
 import csv
 import os
 import time
+import json
 
 from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient import discovery
@@ -170,6 +171,7 @@ class StorageGoogleDrive():
             body = {"requests": requests}
             self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
+
     def get_handle(self, spreadsheet_name, sheet_name):
         """ return a (spreadsheet,sheet) handle and a flag if just created """
 
@@ -221,7 +223,7 @@ class StorageGoogleDrive():
 
             self.__append_dataset(spreadsheet_id, sheet_id, sheet_data)
 
-    def format_spreadsheets(self, pivot_summary=None, pivot_apm=None):
+    def format_spreadsheets(self, pivots={}):
         """ format every spreadsheet / sheet created for a better end-user experience """
 
         requests_queue = {}
@@ -232,25 +234,18 @@ class StorageGoogleDrive():
                 if not spreadsheet_id in requests_queue:
                     requests_queue[spreadsheet_id] = []
 
-                # add a summary pivot table
-                if sheet_name == SUMMARY_NAME:
-                    pivot_sheet_name = SUMMARY_NAME + 'Pivot'
-                    pivot_sheet_id, _ = self.__create_sheet(spreadsheet_id, pivot_sheet_name)
-                    headers = self.__get_dataset(spreadsheet_id, sheet_name + '!1:1')[0]
-                    requests_queue[spreadsheet_id].extend([
-                        summary_pivot_request(sheet_id, pivot_sheet_id, headers, pivot_summary),
-                        auto_resize_dimension_request(pivot_sheet_id)
-                    ])
-
-                # add a apm pivot table
-                if sheet_name == APM_NAME:
-                    pivot_sheet_name = APM_NAME + 'Pivot'
-                    pivot_sheet_id, _ = self.__create_sheet(spreadsheet_id, pivot_sheet_name)
-                    headers = self.__get_dataset(spreadsheet_id, sheet_name + '!1:1')[0]
-                    requests_queue[spreadsheet_id].extend([
-                        apm_pivot_request(sheet_id, pivot_sheet_id, headers, pivot_apm),
-                        auto_resize_dimension_request(pivot_sheet_id)
-                    ])
+                # add a pivot table
+                pivot_sheet_name = sheet_name + 'Pivot'
+                pivot_sheet_id, _ = self.__create_sheet(spreadsheet_id, pivot_sheet_name)
+                headers = self.__get_dataset(spreadsheet_id, sheet_name + '!1:1')[0]
+                pivot = pivots.get(sheet_name, {})
+                pivot_table = pivot_table_snippet(sheet_id, pivot, headers)
+                request = pivot_request(pivot_sheet_id, pivot_table)
+                print(json.dumps(request, sort_keys=True, indent=4))
+                requests_queue[spreadsheet_id].extend([
+                    request,
+                    auto_resize_dimension_request(pivot_sheet_id)
+                ])
 
                 # beautify all dumps
                 requests_queue[spreadsheet_id].extend([
