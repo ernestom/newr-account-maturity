@@ -205,7 +205,12 @@ def apm_pivot_request(sheet_id, pivot_sheet_id):
             'sourceColumnOffset': 2,
             'showTotals': True,
             'sortOrder': 'ASCENDING'
-        }   
+        },
+        {
+            'sourceColumnOffset': 5,
+            'showTotals': True,
+            'sortOrder': 'ASCENDING'
+        },  
     ]
     values = [
         {
