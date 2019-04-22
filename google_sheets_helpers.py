@@ -135,7 +135,7 @@ def pivot_request(sheet_id, pivot_sheet_id, rows=[], columns=[], values=[]):
     }
 
 
-def summary_pivot_request(sheet_id, pivot_sheet_id):
+def summary_pivot_request(sheet_id, pivot_sheet_id, headers, pivot):
     rows = [
         {
             'sourceColumnOffset': 0,
@@ -194,7 +194,7 @@ def summary_pivot_request(sheet_id, pivot_sheet_id):
     return pivot_request(sheet_id, pivot_sheet_id, rows=rows, columns=[], values=values)
 
 
-def apm_pivot_request(sheet_id, pivot_sheet_id):
+def apm_pivot_request(sheet_id, pivot_sheet_id, headers, pivot):
     rows = [
         {
             'sourceColumnOffset': 6,

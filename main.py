@@ -31,6 +31,8 @@ def get_config():
     google_secret_file_path = config.get('google_secret_file_path', '')
     new_relic_insights_api_key = config.get('new_relic_insights_api_key', '')
     new_relic_insights_api_account_id = config.get('new_relic_insights_api_account_id', '')
+    pivot_summary = config.get('pivot_summary', None)
+    apm_summary = config.get('apm_summary', None)
     del config
 
     assert bool(local_account_list_path) ^ bool(google_account_list_id),\
@@ -156,7 +158,7 @@ def dump_metrics(config):
             insights_storage.dump_metrics(MOBILE_NAME, mobile_apps)
 
     if config['output_google']:
-        google_storage.format_spreadsheets()
+        google_storage.format_spreadsheets(config['pivot_summary'], config['apm_summary'])
 
 def main():
     try:
