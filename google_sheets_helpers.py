@@ -191,12 +191,12 @@ def apm_pivot_request(sheet_id, pivot_sheet_id):
         {
             'sourceColumnOffset': 7,
             'summarizeFunction': 'SUM',
-            'name': 'Total Conditions'
+            'name': 'Conditions Total'
         },
         {
             'sourceColumnOffset': 8,
             'summarizeFunction': 'SUM',
-            'name': 'Total Labels'
+            'name': 'Labels Total'
         }  
     ]
 

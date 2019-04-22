@@ -25,6 +25,16 @@ def paginating_next_url(response):
             url = None
     return url
 
+def a_month_recent_next_url(response):
+    """ looks for a next link in the response to get next url """
+
+    url = response.links.get('next', {}).get('url', None)
+    if url:
+        parsed = urlparse.urlparse(url)
+        page = int(urlparse.parse_qs(parsed.query)['page'][0])
+        if page > MAX_PAGES:
+            url = None
+    return url
 
 class NewRelicRestAPI():
     """ Facade to New Relic REST API LIST endpoints """
@@ -48,7 +58,7 @@ class NewRelicRestAPI():
     },
     'application_deployments': {
         'url': 'https://api.newrelic.com/v2/applications/{}/deployments.json',
-        'next_url': paginating_next_url,
+        'next_url': a_month_recent_next_url,
         'result_set_name': 'deployments'
     },
     'mobile_applications': {

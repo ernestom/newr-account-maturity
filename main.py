@@ -28,7 +28,7 @@ def get_config():
     local_account_list_path = config.get('local_account_list_path', '')
     google_output_folder_id = config.get('google_output_folder_id', '')
     google_account_list_id = config.get('google_account_list_id', '')
-    google_account_list = config.get('google_account_list', 'Sheet1')
+    google_account_list_sheet = config.get('google_account_list_sheet', 'Sheet1')
     google_secret_file_path = config.get('google_secret_file_path', '')
     new_relic_insights_api_key = config.get('new_relic_insights_api_key', '')
     new_relic_insights_api_account_id = config.get('new_relic_insights_api_account_id', '')
@@ -97,7 +97,7 @@ def dump_metrics(config):
     elif config['input_google']:
         accounts = google_storage.get_accounts(
             config['google_account_list_id'], 
-            config['google_account_list']
+            config['google_account_list_sheet']
         )
     else:
         accounts = []
