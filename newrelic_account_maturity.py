@@ -216,7 +216,7 @@ class NewRelicAccountMaturity():
         self.get_alerts_policies_metrics(start_time)
         elapsed_time = round(time.time() - start_time, 2)
         self.__metrics['get_metadata_duration'] = elapsed_time
-        return self.__metrics, apm_apps, browser_apps, mobile_apps
+        return [self.__metrics], apm_apps, browser_apps, mobile_apps
 
 
 def main():

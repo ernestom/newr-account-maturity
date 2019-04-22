@@ -4,14 +4,19 @@ import time
 
 class StorageLocal():
 
-    get_output_folder_name = lambda self: time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', time.localtime())
+    get_output_folder_name = lambda self,t: time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', t)
 
-    def __init__(self, folder):
+    def __init__(self, folder, timestamp=None):
         self.__cache = {}
-        self.output_folder = os.path.join(folder, self.get_output_folder_name())
 
+        if timestamp:
+            output_folder_name = self.get_output_folder_name(timestamp)
+        else:
+            output_folder_name = self.get_output_folder_name(time.localtime())
+
+        self.output_folder = os.path.join(folder, output_folder_name)
         if not os.path.exists(self.output_folder):
-            os.mkdir(self.output_folder)
+            os.mkdir(self.output_folder, mode=0o755)
 
     def get_handle(self, name):
         if not name in self.__cache:
@@ -27,13 +32,9 @@ class StorageLocal():
             csv_reader = csv.DictReader(csv_file, delimiter=',')
             return list(row for row in csv_reader) 
         
-    def dump_metrics(self, name, data=[], metadata={}):
+    def dump_metrics(self, name, data=[]):
         if type(data) == list and len(data) > 0:
-            if len(metadata) > 0:
-                for row in data:
-                    row.update(metadata)
             handle, just_created = self.get_handle(name)
-
             csv_writer = csv.DictWriter(handle, fieldnames=data[0].keys())
             if just_created:
                 csv_writer.writeheader()

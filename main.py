@@ -1,6 +1,10 @@
+
+#!env/bin/python
 import time
 import json
 import os
+
+from global_constants import *
 
 from newrelic_account_maturity import NewRelicAccountMaturity
 
@@ -8,9 +12,8 @@ from storage_newrelic_insights import StorageNewRelicInsights
 from storage_google_drive import StorageGoogleDrive
 from storage_local import StorageLocal
 
-
 CONFIG_FILE = 'config.json'
-GOOGLE_SHEETS_EPOCH = 25569 # 1970-01-01 00:00:00 in Google Sheets
+GOOGLES_EPOCH = 25569 # 1970-01-01 00:00:00 in Sheets
 SECONDS_IN_A_DAY = 86400
 
 
@@ -25,6 +28,7 @@ def get_config():
     local_account_list_path = config.get('local_account_list_path', '')
     google_output_folder_id = config.get('google_output_folder_id', '')
     google_account_list_id = config.get('google_account_list_id', '')
+    google_account_list = config.get('google_account_list', 'Sheet1')
     google_secret_file_path = config.get('google_secret_file_path', '')
     new_relic_insights_api_key = config.get('new_relic_insights_api_key', '')
     new_relic_insights_api_account_id = config.get('new_relic_insights_api_account_id', '')
@@ -42,7 +46,8 @@ def get_config():
     assert not (bool(new_relic_insights_api_key) ^ bool(new_relic_insights_api_account_id)),\
     'error: both a new relic insights key and account id must be set'
 
-    input_source = 'local' if bool(local_account_list_path) else 'google'
+    input_local = bool(local_account_list_path)
+    input_google = bool(google_account_list_id)
     output_local = bool(local_output_folder_path)
     output_google = bool(google_output_folder_id)
     output_insights = bool(new_relic_insights_api_key)
@@ -50,89 +55,116 @@ def get_config():
     return locals()
 
 
+def inject_metadata(data, metadata):
+    """ inject the metadata at the beginning of the dictionary """
+
+    for index,row in enumerate(data):
+        _row = {}
+        _row.update(metadata)
+        _row.update(row)
+        data[index] = _row
+
+
 def dump_metrics(config):
     timestamp = int(time.time())
-    updated_at = timestamp / SECONDS_IN_A_DAY + GOOGLE_SHEETS_EPOCH
 
     # setup the required input and output instances
-    if config['input_source'] == 'local' or config['output_local']:
+    if config['input_local'] or config['output_local']:
         local_storage = StorageLocal(
-            config['local_output_folder_path']
+            config['local_output_folder_path'],
+            time.localtime(timestamp)
         )
-    
-    if config['input_source'] == 'google' or config['output_google']:
+
+    if config['input_google'] or config['output_google']:
         google_storage = StorageGoogleDrive(
             config['google_output_folder_id'], 
-            config['google_secret_file_path']
+            config['google_secret_file_path'],
+            time.localtime(timestamp)
         )
 
     if config['output_insights']:
         insights_storage = StorageNewRelicInsights(
             config['new_relic_insights_api_account_id'], 
-            config['new_relic_insights_api_key']
+            config['new_relic_insights_api_key'],
+            timestamp
         )
 
     # get the accounts list
-    if config['input_source'] == 'local':
-        accounts = local_storage.get_accounts(config['local_account_list_path'])
-    elif config['input_source'] == 'google':
-        accounts = google_storage.get_accounts(config['google_account_list_id'], 'AccountList')
+    if config['input_local']:
+        accounts = local_storage.get_accounts(
+            config['local_account_list_path']
+        )
+    elif config['input_google']:
+        accounts = google_storage.get_accounts(
+            config['google_account_list_id'], 
+            config['google_account_list']
+        )
     else:
         accounts = []
 
+    # traverse, extract, store maturity metrics from all accounts
     for index, account in enumerate(accounts):
-        # can do a better log output :-)
+
+        # get account fields
+        account_master = account['master_name']
+        account_id = account['account_id']
+        account_name = account['account_name']
+        rest_api_key = account['rest_api_key']
+
+        # can do a better progression log...
         print('{}/{}: {} - {}'.format(
             index + 1,
             len(accounts),
-            account['account_id'],
-            account['account_name']
+            account_id,
+            account_name
         ))
 
-        # timestamp and updated_at are the same date under different formats (Insights, Google)
-        metadata = {'updated_at': updated_at, 'timestamp': timestamp}
-
-        # only collect non-sensitive metadata from account dictionary
-        for key in sorted(account):
-            if not 'key' in key:
-                metadata[key] = account[key]
-
         # get metrics from current account
-        account_maturity = NewRelicAccountMaturity(account['rest_api_key'])
+        account_maturity = NewRelicAccountMaturity(rest_api_key)
         account_summary, apm_apps, browser_apps, mobile_apps = account_maturity.metrics()
-        account_master = account['master_name']
+        
+        # collect and inject the required metadata
+        metadata = {
+            'master_name': account_master,
+            'account_id': account_id,
+            'account_name': account_name,
+            'updated_at': timestamp / SECONDS_IN_A_DAY + GOOGLES_EPOCH
+        }
+        inject_metadata(account_summary, metadata)
+        inject_metadata(apm_apps, metadata)
+        inject_metadata(browser_apps, metadata)
+        inject_metadata(mobile_apps, metadata)
 
         # dump metrics to local storage
         if config['output_local']:
-            local_storage.dump_metrics('SUMMARY', [account_summary], metadata)
-            local_storage.dump_metrics(account_master + '_APM', apm_apps, metadata)
-            local_storage.dump_metrics(account_master + '_BROWSER', browser_apps, metadata)
-            local_storage.dump_metrics(account_master + '_MOBILE', mobile_apps, metadata)
+            local_storage.dump_metrics(SUMMARY_NAME, account_summary)
+            local_storage.dump_metrics(account_master + '_' + APM_NAME, apm_apps)
+            local_storage.dump_metrics(account_master + '_' + BROWSER_NAME, browser_apps)
+            local_storage.dump_metrics(account_master + '_' + MOBILE_NAME, mobile_apps)
 
         # dump metrics to google storage
         if config['output_google']:
-            google_storage.dump_metrics('SUMMARY/SUMMARY', [account_summary], metadata)
-            google_storage.dump_metrics(account_master + '/APM', apm_apps, metadata)
-            google_storage.dump_metrics(account_master + '/BROWSER', browser_apps, metadata)
-            google_storage.dump_metrics(account_master + '/MOBILE', mobile_apps, metadata)
+            google_storage.dump_metrics(SUMMARY_NAME + '/' + SUMMARY_NAME, account_summary)
+            google_storage.dump_metrics(account_master + '/' + APM_NAME, apm_apps)
+            google_storage.dump_metrics(account_master + '/' + BROWSER_NAME, browser_apps)
+            google_storage.dump_metrics(account_master + '/' + MOBILE_NAME, mobile_apps)
         
         # dump metrics to insights storage 
-        # must be called at the very last as it adds an eventType attribute to every metric row
         if config['output_insights']:
-            insights_storage.dump_metrics('Summary', [account_summary], metadata)
-            insights_storage.dump_metrics('ApmDetails', apm_apps, metadata)
-            insights_storage.dump_metrics('BrowserDetails', browser_apps, metadata)
-            insights_storage.dump_metrics('MobileDetails', mobile_apps, metadata)
+            insights_storage.dump_metrics(SUMMARY_NAME, account_summary)
+            insights_storage.dump_metrics(APM_NAME, apm_apps)
+            insights_storage.dump_metrics(BROWSER_NAME, browser_apps)
+            insights_storage.dump_metrics(MOBILE_NAME, mobile_apps)
 
     if config['output_google']:
         google_storage.format_spreadsheets()
 
 def main():
-    #try:
+    try:
         config = get_config()
         dump_metrics(config)
-    #except Exception as error:
-    #    print(error.args)
+    except Exception as error:
+        print(error.args)
 
 if __name__ == '__main__':
     main()

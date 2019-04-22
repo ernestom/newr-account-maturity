@@ -5,9 +5,8 @@ import time
 from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient import discovery
 
+from global_constants import *
 from google_sheets_helpers import *
-
-
 
 class StorageGoogleDrive():
 
@@ -16,11 +15,10 @@ class StorageGoogleDrive():
         'spreadsheet': 'application/vnd.google-apps.spreadsheet'
     }
 
-    get_output_folder_name = lambda self: time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', time.localtime())
+    get_output_folder_name = lambda self,t: time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', t)
 
-    def __init__(self, folder_id, json_keyfile_name, writers=[], readers=[]):
+    def __init__(self, folder_id, json_keyfile_name, writers=[], readers=[], timestamp=None):
         self.__cache = {}
-
         self.__readers = readers
         self.__writers = writers
 
@@ -38,7 +36,11 @@ class StorageGoogleDrive():
         self.__permissions = drive.permissions() # pylint: disable=no-member
         self.__spreadsheets = sheets.spreadsheets() # pylint: disable=no-member
 
-        self.output_folder_id, _ = self.__create_object('folder', self.get_output_folder_name(), folder_id)
+        if timestamp:
+            output_folder_name = self.get_output_folder_name(timestamp)
+        else:
+            output_folder_name = self.get_output_folder_name(time.localtime())
+        self.output_folder_id, _ = self.__create_object('folder', output_folder_name, folder_id)
 
     def __set_permissions(self, object_id):
         """ set readers / writers permission on object id """
@@ -140,10 +142,10 @@ class StorageGoogleDrive():
             self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
     def __fit_sheet_rows(self, spreadsheet_id, sheet_id):
-        """ set the total number of rows to 1 by removing rows 1..999 """
+        """ set the total number of rows to 1 by removing rows 2..1000 """
 
         requests = [
-            delete_dimension_request(sheet_id, "ROWS", 0, SHEET_DEFAULT_ROWS)
+            delete_dimension_request(sheet_id, "ROWS", 1, SHEET_DEFAULT_ROWS)
         ]
 
         body = {"requests": requests}
@@ -194,17 +196,13 @@ class StorageGoogleDrive():
     
         return accounts
         
-    def dump_metrics(self, name, data, metadata={}):
+    def dump_metrics(self, name, data):
         """ append the data to the spreadsheet/sheet decorating each row with optional metadata """
 
         assert name.count('/') == 1,\
         'error: invalid name. it must follow spreadsheet/sheet nomenclature'
 
         if type(data) == list and len(data) > 0:
-            if len(metadata) > 0:
-                for row in data:
-                    row.update(metadata)
-
             spreadsheet_name, sheet_name = name.split('/')
             (spreadsheet_id, sheet_id), just_created = self.get_handle(spreadsheet_name, sheet_name)
 
@@ -220,7 +218,6 @@ class StorageGoogleDrive():
 
             self.__append_dataset(spreadsheet_id, sheet_id, sheet_data)
 
-
     def format_spreadsheets(self, summary_pivot=None, apm_pivot=None):
         """ format every spreadsheet / sheet created for a better end-user experience """
 
@@ -232,29 +229,39 @@ class StorageGoogleDrive():
                 if not spreadsheet_id in requests_queue:
                     requests_queue[spreadsheet_id] = []
 
-                if summary_pivot and sheet_name == 'SUMMARY':
-                    request = get_summary_pivot_request(spreadsheet_id, sheet_id, summary_pivot)
-                    if request:
-                        requests_queue[spreadsheet_id].extend(request)
+                # add a summary pivot table
+                if sheet_name == SUMMARY_NAME:
+                    pivot_sheet_id, _ = self.__create_sheet(spreadsheet_id, SUMMARY_NAME + 'Pivot')
+                    requests_queue[spreadsheet_id].extend([
+                        summary_pivot_request(sheet_id, pivot_sheet_id),
+                        auto_resize_dimension_request(pivot_sheet_id)
+                    ])
 
-                if apm_pivot and sheet_name == 'APM':
-                    request = get_apm_pivot_request(spreadsheet_id, sheet_id, apm_pivot)
-                    if request:
-                        requests_queue[spreadsheet_id].extend(request)
+                # add a apm pivot table
+                if sheet_name == APM_NAME:
+                    pivot_sheet_id, _ = self.__create_sheet(spreadsheet_id, APM_NAME + 'Pivot')
+                    requests_queue[spreadsheet_id].extend([
+                        apm_pivot_request(sheet_id, pivot_sheet_id),
+                        auto_resize_dimension_request(pivot_sheet_id)
+                    ])
 
+                # beautify all dumps
                 requests_queue[spreadsheet_id].extend([
                     basic_filter_request(sheet_id),
                     format_header_request(sheet_id),
-                    freeze_header_request(sheet_id),
+                    freeze_rows_request(sheet_id),
+                    freeze_columns_request(sheet_id, 3),
                     auto_resize_dimension_request(sheet_id)
                 ])
 
             else:
+                # remove Sheet1
                 spreadsheet_id = v
                 if not v in requests_queue:
                     requests_queue[spreadsheet_id] = []
                 requests_queue[spreadsheet_id].append(delete_sheet_request(SHEET1_SHEET_ID))
 
+        # post the batch request queue
         for spreadsheet_id,requests in iter(requests_queue.items()):
             body = {"requests": requests}
             self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
