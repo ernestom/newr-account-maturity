@@ -12,15 +12,26 @@
     "new_relic_insights_api_key": "",
     "new_relic_insights_api_account_id": "",
 
-    "pivot_summary": {
-        "rows": [],
-        "columns": [],
-        "values": []
-    },
+    "pivots": {
+        "Summary": {
+            "rows": ["master_name", "account_name"],
+            "columns": [],
+            "values": {
+                "users_total": "SUM", 
+                "apm_total": "SUM"
+            }
+        },
 
-    "pivot_apm": {
-        "rows": [],
-        "columns": [],
-        "values": []
+        "ApmDetails": {
+            "rows": ["language", "account_name", "app_name"],
+            "columns": [],
+            "values": {
+                "app_id": "COUNT",
+                "conditions": "SUM",
+                "deployments": "SUM",
+                "labels": "SUM"
+
+            }
+        }
     }
 }
