@@ -153,9 +153,9 @@ class NewRelicRestAPI():
     }
 
     def __init__(self, rest_api_key=''):
-        if len(rest_api_key) != 47:
+        if not rest_api_key:
             rest_api_key = os.getenv('NEW_RELIC_REST_API_KEY', '')
-        if len(rest_api_key) != 47:
+        if not rest_api_key:
             raise Exception('error: missing New Relic REST API KEY')
         self.__headers = {'X-API-Key': rest_api_key}
 
