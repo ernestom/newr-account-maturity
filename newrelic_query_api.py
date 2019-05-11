@@ -218,10 +218,10 @@ class NewRelicQueryAPI():
             - rate
 
         complex aggregate functions fully supported:
-            - percentiles: a column for each percentile
-            - histogram: a column for each bucket
-            - apdex: 5 columns (s,f,t,count,score)
-            - funnel a column for each step
+            - percentiles: denormalized, one percentile per attribute
+            - histogram: denormalized, one bucket per attribute
+            - apdex: all 5 attributes (s, f, t, count, score)
+            - funnel: denormalized, one step per attribute
 
         other functions:
             - keyset: stores a list of keys in one event as a list
@@ -238,6 +238,8 @@ class NewRelicQueryAPI():
             - combinations of all above
 
         other tidbits:
+            - create attribute names from function and attribute metadata
+                - or from alias (if present) and attribute
             - timestamp is overwritten with the 'UNTIL TO' one
             - timewindow stores how many seconds in the analysis
                 - analysis range is [timestamp - timewindows : timestamp]
@@ -656,8 +658,6 @@ if __name__ == "__main__":
 
     # simple test case
     api = NewRelicQueryAPI()
-    #for nrql in nrqls:
-    nrql = 'select uniques(appId) from Transaction'
-    events = api.query(nrql)
-    #events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
-    print(json.dumps(events, sort_keys=True, indent=4))
+    for nrql in nrqls:
+        events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
+        print(json.dumps(events, sort_keys=True, indent=4))
