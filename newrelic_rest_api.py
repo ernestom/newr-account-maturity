@@ -1,4 +1,3 @@
-#!env/bin/python
 import json
 import os
 import requests
