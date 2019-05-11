@@ -3,11 +3,6 @@ import os
 import requests
 
 
-def get_empty(results, header, include={}):
-    """ returns an empty event list """
-    return []
-
-
 def get_results_header(contents):
     """ extracts results names from the contents attribute """
 
@@ -36,7 +31,8 @@ def get_results_header(contents):
     return names
 
 
-def get_facets_header(facet, header):
+def get_facets_values(facet, header):
+    """ extracts facets values from the contents attribute """
 
     data = {}
     if type(facet) is str:
@@ -47,8 +43,8 @@ def get_facets_header(facet, header):
     return data
 
 
-
-def get_results(results, header, include={}, offset=0):
+def get_results_values(results, header, include={}, offset=0):
+    """ extracts results values from the contents attribute """
 
     row = {k:v for k,v in include.items()}
     index = 0
@@ -68,38 +64,10 @@ def get_results(results, header, include={}, offset=0):
     return row
 
 
-def get_facets(results, header, include={}, offset=0):
-
-    data = []
-    for result in results:
-        # row = {k:v for k,v in include.items()}
-        row = get_facets_header(result['name'], header)
-        row.update(get_results(result['results'], header, include, offset=len(row)))
-        data.append(row)
-
-    return data
-
-
-def get_timeseries(results, header, include={}, offset=0):
-
-    data = []
-    for result in results:
-        # row = {k:v for k,v in include.items()}
-        row = get_results(result['results'], header, include, offset)
-        row.update({
-            'inspectedCount': result['inspectedCount'],
-            'timewindow': result['endTimeSeconds'] - result['beginTimeSeconds'],
-            'timestamp': result['endTimeSeconds']
-        })
-        data.append(row)
-
-    return data
-
-
 def get_single(results, header, include={}, offset=0):
     """ SELECT aggr1, aggr2, ... FROM ... """
 
-    return [get_results(results, header, include=include)]
+    return [get_results_values(results, header, include, offset)]
 
 
 def get_events(results, header, include={}, offset=0):
@@ -115,28 +83,61 @@ def get_events(results, header, include={}, offset=0):
     return data
 
 
+def get_facets(results, header, include={}, offset=0):
+    """ SELECT aggr1, aggr2, ... FROM ... FACET attr1, attr2, ... """
+
+    data = []
+    for result in results:
+        row = get_facets_values(result['name'], header)
+        row.update(get_results_values(result['results'], header, include, offset=len(row)))
+        data.append(row)
+
+    return data
+
+
+def get_timeseries(results, header, include={}, offset=0, prefix=''):
+    """ SELECT aggr1, aggr2, ... FROM ... TIMESERIES """
+
+    data = []
+    for result in results:
+        row = get_results_values(result['results'], header, include, offset)
+        row.update({
+            'inspectedCount' + prefix: result['inspectedCount'],
+            'timewindow' + prefix: result['endTimeSeconds'] - result['beginTimeSeconds'],
+            'timestamp' + prefix: result['endTimeSeconds']
+        })
+        data.append(row)
+
+    return data
+
+
+def get_compare(results, header, include={}, offset=0):
+    """ SELECT aggr1(), aggr2(), ... FROM ... COMPARE WITH ... """
+    
+    current = results['current']['results']
+    previous = results['previous']['results']
+    header_previous = [v if i < offset else v + '_compare' for i,v in enumerate(header)]
+    row = get_results_values(current, header, include, offset)
+    row.update(get_results_values(previous, header_previous, {}, offset))
+
+    return [row]
+
+
 def get_facets_timeseries(results, header, include={}, offset=0):
     """ SELECT aggr1(), aggr2(), ... FROM ... FACET attr1, attr2, ... TIMESERIES """
     
     data = []
     for result in results:
-        # row = {k:v for k,v in include.items()}
-        row = get_facets_header(result['name'], header)
+        row = get_facets_values(result['name'], header)
         _include = include
         _include.update(row)
-        data.extend(
-            get_timeseries(
-                result['timeSeries'], 
-                header, 
-                _include,
-                offset=offset
-            )
-        )
+        data.extend(get_timeseries(result['timeSeries'], header, _include, offset))
 
     return data
 
 
-def get_calc_with_compare_facet(results, header, include={}, offset=0):
+def get_compare_facets(results, header, include={}, offset=0):
+    """ SELECT aggr1(), aggr2(), ... FROM ... COMPARE WITH ... FACET attr1, attr2, ... """
 
     data = []
     facets_current = results['current']['facets']
@@ -151,26 +152,28 @@ def get_calc_with_compare_facet(results, header, include={}, offset=0):
     return data
 
 
-def get_calc_with_compare_timeseries(results, header, include={}, offset=0):
-    return []
-    
-    
-def get_compare_with(results, header, include={}, offset=0):
-    """ SELECT aggr1(), aggr2(), ... FROM ... COMPARE WITH ... """
-    
-    current = results['current']['results']
-    previous = results['previous']['results']
-    header_previous = [v if i < offset else v + '_compare' for i,v in enumerate(header)]
-    row = get_results(current, header, include, offset)
-    row.update(get_results(previous, header_previous, {}, offset))
+def get_compare_timeseries(results, header, include={}, offset=0):
+    """ SELECT aggr1(), aggr2(), ... FROM ... COMPARE WITH ... TIMESERIES """
 
-    return [row]
+    data = []
+    timeseries_current = results['current']['timeSeries']
+    timeseries_previous = results['previous']['timeSeries']
+    header_previous = [v if i < offset else v + '_compare' for i,v in enumerate(header)]
+    current = get_timeseries(timeseries_current, header, include, offset)
+    previous = get_timeseries(timeseries_previous, header_previous, {}, offset, '_compare')
+    for curr,prev in list(zip(current, previous)):
+        curr.update(prev)
+        data.append(curr)
+
+    return data
+    
 
 class NewRelicInsightsQueryAPI():
+    """ interface to New Relic Query API that always returns a list of events """
 
     MAX_RETRIES = 5
 
-    def __init__(self, new_relic_account_id, query_api_key, max_retries=MAX_RETRIES):
+    def __init__(self, new_relic_account_id=0, query_api_key='', max_retries=MAX_RETRIES):
         """ init """
         
         if not new_relic_account_id:
@@ -200,12 +203,11 @@ class NewRelicInsightsQueryAPI():
         while not succeeded and count_retries < self.__max_retries:
             try:
                 count_retries += 1
-                response = requests.get(
-                    self.__url, headers=self.__headers, params={'nrql': nrql}
-                )
-                succeeded = (response.status_code == requests.codes.ok)
+                response = requests.get(self.__url, headers=self.__headers, params={'nrql': nrql})
+                succeeded = (response.status_code == requests.codes.ok) 
             except:
                 pass
+
         return response.json() if succeeded else []
 
     def events(self, nrql, include={}):
@@ -218,42 +220,42 @@ class NewRelicInsightsQueryAPI():
         if not response:
             return []
 
-        del response['performanceStats']
-        print(json.dumps(response, sort_keys=True, indent=4))
+        #del response['performanceStats']
+        #print(json.dumps(response, sort_keys=True, indent=4))
 
         metadata = response.get('metadata', {})
         contents = metadata.get('contents', {})
 
         # determine the NRQL structure
-        has_compare_with = 'compareWith' in metadata
-        has_facet = 'facet' in metadata or 'facet' in contents
+        has_compare = 'compareWith' in metadata
+        has_facets = 'facet' in metadata or 'facet' in contents
         has_timeseries = 'timeSeries' in metadata or 'timeSeries' in contents
-        is_simple = not has_compare_with and not has_facet and not has_timeseries
+        is_simple = not has_compare and not has_facets and not has_timeseries
         has_events = is_simple and len(contents) and 'order' in contents[0]
         has_single = is_simple and len(contents) and not 'order' in contents[0]
 
         # normalize the contents list
-        if has_timeseries and (has_compare_with or has_facet):
+        if has_timeseries and (has_compare or has_facets):
             contents = contents['timeSeries']['contents']
-        elif has_timeseries and not (has_compare_with or has_facet):
+        elif has_timeseries and not (has_compare or has_facets):
             contents = metadata['timeSeries']['contents']
-        elif has_compare_with and has_facet:
+        elif has_compare and has_facets:
             contents = contents['contents']['contents']
-        elif has_compare_with or has_facet:
+        elif has_compare or has_facets:
             contents = contents['contents']
         else:
             contents = metadata['contents']
 
         # get facets attribute names
-        if has_facet:
-            if has_compare_with:
+        if has_facets:
+            if has_compare:
                 facet = metadata['contents']['facet']
             else:
                 facet = metadata['facet']
         else:
             facet = None
 
-        # build the header and get the offset
+        # build the header and determine the offset
         header = []
         if type(facet) is list:
             header.extend(facet)
@@ -278,34 +280,39 @@ class NewRelicInsightsQueryAPI():
             fetch_data = get_events
             results = response['results']
 
-        elif has_compare_with:
-            if has_facet:
-                fetch_data = get_calc_with_compare_facet
+        elif has_compare:
+            if has_facets:
+                fetch_data = get_compare_facets
                 _include.update({
                     'timewindow': int((metadata['endTimeMillis'] - metadata['beginTimeMillis']) / 1000),
                     'timestamp': int(metadata['endTimeMillis'] / 1000),
                     'timestamp_compare': int((metadata['beginTimeMillis'] - metadata['compareWith']) / 1000)
                 })
+
             elif has_timeseries:
-                fetch_data = get_calc_with_compare_timeseries
+                fetch_data = get_compare_timeseries
+
             else:
-                fetch_data = get_compare_with
+                fetch_data = get_compare
                 _include.update({
                     'timewindow': int((metadata['endTimeMillis'] - metadata['beginTimeMillis']) / 1000),
                     'timestamp': int(metadata['endTimeMillis'] / 1000),
                     'timestamp_compare': int((metadata['beginTimeMillis'] - metadata['compareWith']) / 1000)
                 })
+
             results = {'current': response['current'], 'previous': response['previous']}
 
-        elif has_facet:
+        elif has_facets:
             if has_timeseries:
                 fetch_data = get_facets_timeseries
+
             else:
                 fetch_data = get_facets
                 _include.update({
                     'timewindow': int((metadata['endTimeMillis'] - metadata['beginTimeMillis']) / 1000),
                     'timestamp': int(metadata['endTimeMillis'] / 1000)
                 })
+
             results = response['facets']
 
         elif has_timeseries:
@@ -313,17 +320,13 @@ class NewRelicInsightsQueryAPI():
             results = response['timeSeries']
 
         else:
-            fetch_data = get_empty
             results = []
 
         # parse the result JSON an return a list of event
-        return fetch_data(results, header, _include, offset)
+        return fetch_data(results, header, _include, offset) if results else []
 
 if __name__ == "__main__":
-    new_relic_account_id = 2328917
-    new_relic_insights_query_api_key = ''
-    api = NewRelicInsightsQueryAPI(new_relic_account_id, new_relic_insights_query_api_key)
-    nrql = "select count(*), average(duration) from Transaction compare with 1 day ago facet appName"
-    #events = api.query(nrql)
-    events = api.events(nrql, include={'eventType': 'Test'})
+    api = NewRelicInsightsQueryAPI()
+    nrql = "select count(*), average(duration) from Transaction compare with 1 day ago timeseries"
+    events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
     print(json.dumps(events, sort_keys=True, indent=4))
