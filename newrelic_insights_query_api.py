@@ -2,6 +2,7 @@ import json
 import os
 import requests
 
+SP = '_'
 
 def get_results_header(contents):
     """ extracts results names from the contents attribute """
@@ -13,16 +14,20 @@ def get_results_header(contents):
             content = content['contents']
         function = content['function']
         attribute = content.get('attribute', '')
-        name = alias if alias else function + '_' + attribute if attribute else function
+        name = alias if alias else function + SP + attribute if attribute else function
         
+        if function == 'funnel':
+            for step in content['steps']:
+                names.append(name + SP + str(step.replace(' ', SP)))
+
         if function == 'percentile':
             for threshold in content['thresholds']:
-                names.append(name + '_' + str(threshold)) 
+                names.append(name + SP + str(threshold)) 
 
         elif function == 'rate':
             if not alias:
                 of = content['of']
-                name = name + '_' + of['function'] + '_' + of['attribute']
+                name = name + SP + of['function'] + SP + of['attribute']
             names.append(name)
 
         elif function == 'histogram':
@@ -30,11 +35,12 @@ def get_results_header(contents):
             size = content['bucketSize']
             for i in range(0, content['bucketCount']):
                 end = start + size
-                bucket = '%05.2f' % start + '_' + '%05.2f' % end
-                names.append(name + '_' + bucket)
+                bucket = '%05.2f' % start + SP + '%05.2f' % end
+                names.append(name + SP + bucket)
                 start = end
         
         elif function == 'apdex':
+            # this other matters
             names.append(name + '_count')
             names.append(name + '_f')
             names.append(name + '_s')
@@ -65,14 +71,19 @@ def get_results_values(results, header, include={}, offset=0):
     row = {k:v for k,v in include.items()}
     index = 0
     for result in results:
-        if 'percentiles' in result:
+        if 'percentiles' in result: # percentiles
             for percentile in list(result['percentiles'].values()):
                 row.update({header[offset+index]: percentile})
                 index += 1
 
-        elif 'histogram' in result:
+        elif 'histogram' in result: # histogram
             for histogram in result['histogram']:
                 row.update({header[offset+index]: histogram})
+                index += 1
+
+        elif 'steps' in result: # funnel
+            for step in result['steps']:
+                row.update({header[offset+index]: step})
                 index += 1
 
         elif 's' in result and 't' in 'result' and 'f' in result: # apdex
@@ -80,8 +91,7 @@ def get_results_values(results, header, include={}, offset=0):
                 row.update({header[offset+index]: apdex_metric})
                 index += 1
 
-        # default case get first value in result list
-        else:       
+        else: # default aggregation
             row.update({header[offset+index]: list(result.values())[0]})
             index += 1
 
@@ -376,10 +386,12 @@ if __name__ == "__main__":
         rate(uniqueCount(appId), 1 hour) as 'MyRate'
     from
         Transaction
-    since
-        1 day ago
+    facet
+        appName
+    compare with
+        1 week ago
     """
-    standard = api.query(nrql)
-    print(json.dumps(standard, sort_keys=True, indent=4))
+    # standard = api.query(nrql)
+    # print(json.dumps(standard, sort_keys=True, indent=4))
     events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
     print(json.dumps(events, sort_keys=True, indent=4))
