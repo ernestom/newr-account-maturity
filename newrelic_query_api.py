@@ -224,8 +224,8 @@ class NewRelicQueryAPI():
             - funnel: denormalized, one step per attribute
 
         other functions:
-            - keyset: stores a list of keys in one event as a list
-            - uniques: stores a list of uniques in one event as a list
+            - keyset: stores a list of keys in one single attribute
+            - uniques: stores a list of uniques in one single attribute
 
         all NRQL syntax supported:
             - events lists
@@ -293,9 +293,6 @@ class NewRelicQueryAPI():
         response = self.query(nrql)
         if not response:
             return []
-
-        #del response['performanceStats']
-        #print(json.dumps(response, sort_keys=True, indent=4))
 
         metadata = response.get('metadata', {})
         contents = metadata.get('contents', {})
@@ -515,7 +512,6 @@ if __name__ == "__main__":
     """
     select
         percentage(count(*), where duration < 0.05),
-        funnel(traceId, where duration < 2, where duration < 1), 
         apdex(duration, 0.02),
         uniqueCount(appId),
         count(*),
@@ -528,7 +524,6 @@ if __name__ == "__main__":
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
         percentage(count(*), where duration < 0.05) as 'MyPercentage',
-        funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
         count(*) as 'MyCount',
@@ -586,7 +581,6 @@ if __name__ == "__main__":
     """
     select
         percentage(count(*), where duration < 0.05),
-        funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
         uniqueCount(appId),
         count(*),
@@ -599,7 +593,6 @@ if __name__ == "__main__":
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
         percentage(count(*), where duration < 0.05) as 'MyPercentage',
-        funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
         count(*) as 'MyCount',
