@@ -40,7 +40,7 @@ def get_results_header(contents):
                 start = end
         
         elif function == 'apdex':
-            # this other matters
+            # this other matters as get_result_values is lazy now :-)
             names.append(name + '_count')
             names.append(name + '_f')
             names.append(name + '_s')
@@ -202,7 +202,7 @@ def get_compare_timeseries(results, header, include={}, offset=0):
     return data
     
 
-class NewRelicInsightsQueryAPI():
+class NewRelicQueryAPI():
     """ interface to New Relic Query API that always returns a list of events """
 
     MAX_RETRIES = 5
@@ -211,16 +211,16 @@ class NewRelicInsightsQueryAPI():
         """ init """
         
         if not account_id:
-            new_relic_account_id = os.getenv('NEW_RELIC_ACCOUNT_ID', '')
+            account_id = os.getenv('NEW_RELIC_ACCOUNT_ID', '')
 
         if not account_id:
             raise Exception('error: missing New Relic account id')
 
         if not query_api_key:
-            query_api_key = os.getenv('NEW_RELIC_INSIGHTS_QUERY_API_KEY', '')
+            query_api_key = os.getenv('NEW_RELIC_QUERY_API_KEY', '')
 
         if not query_api_key:
-            raise Exception('error: missing New Relic Insights query API key')
+            raise Exception('error: missing New Relic query API key')
 
         self.__headers = {
             'Accept': 'application/json',
@@ -356,20 +356,29 @@ class NewRelicInsightsQueryAPI():
         else:
             results = []
 
-        # parse the result JSON an return a list of event
+        # parse the result JSON and return a list of event
         return fetch_data(results, header, _include, offset) if results else []
 
 if __name__ == "__main__":
-    account_id = 1
-    query_api_key = ''
-    api = NewRelicInsightsQueryAPI(account_id, query_api_key)
-    nrql = """
+    nrqls = [
+    # CASE 1 - event list
+    """
+    select
+        appId, appName
+    from
+        Transaction
+    """,
+
+    # CASE 2 - aggregated values
+    """
     select 
+        funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
         uniqueCount(appId),
         count(*),
         min(duration),
         max(duration),
+        latest(duration),
         sum(duration),
         average(duration),
         stddev(duration),
@@ -379,6 +388,64 @@ if __name__ == "__main__":
         count(*) as 'MyCount',
         min(duration) as 'MyMin',
         max(duration) as 'MyMax',
+        latest(duration) as 'MyLatest',
+        sum(duration) as 'MySum',
+        average(duration) as 'MyAverage',
+        stddev(duration) as 'MyStdDev',
+        percentile(duration, 50, 75, 90) as 'MyPercentile',
+        rate(uniqueCount(appId), 1 hour) as 'MyRate'
+    from
+        Transaction
+    """,
+
+    # CASE 3 - aggregated values over time
+    """
+    select 
+        apdex(duration, 0.02),
+        uniqueCount(appId),
+        count(*),
+        min(duration),
+        max(duration),
+        latest(duration),
+        sum(duration),
+        average(duration),
+        stddev(duration),
+        percentile(duration, 50, 75, 90),
+        rate(uniqueCount(appId), 1 minute),
+        uniqueCount(appId) as 'MyUniqueCount',
+        count(*) as 'MyCount',
+        min(duration) as 'MyMin',
+        max(duration) as 'MyMax',
+        latest(duration) as 'MyLatest',
+        sum(duration) as 'MySum',
+        average(duration) as 'MyAverage',
+        stddev(duration) as 'MyStdDev',
+        percentile(duration, 50, 75, 90) as 'MyPercentile',
+        rate(uniqueCount(appId), 1 hour) as 'MyRate'
+    from
+        Transaction
+    timeseries
+    """,
+
+    # CASE 4 - segmented aggregated values
+    """
+    select 
+        apdex(duration, 0.02),
+        uniqueCount(appId),
+        count(*),
+        min(duration),
+        max(duration),
+        latest(duration),
+        sum(duration),
+        average(duration),
+        stddev(duration),
+        percentile(duration, 50, 75, 90),
+        rate(uniqueCount(appId), 1 minute),
+        uniqueCount(appId) as 'MyUniqueCount',
+        count(*) as 'MyCount',
+        min(duration) as 'MyMin',
+        max(duration) as 'MyMax',
+        latest(duration) as 'MyLatest',
         sum(duration) as 'MySum',
         average(duration) as 'MyAverage',
         stddev(duration) as 'MyStdDev',
@@ -387,11 +454,137 @@ if __name__ == "__main__":
     from
         Transaction
     facet
-        appName
+        appName, appId
+    """,
+
+    # CASE 5 - segmented aggregated values over time
+    """
+    select 
+        apdex(duration, 0.02),
+        uniqueCount(appId),
+        count(*),
+        min(duration),
+        max(duration),
+        latest(duration),
+        sum(duration),
+        average(duration),
+        stddev(duration),
+        percentile(duration, 50, 75, 90),
+        rate(uniqueCount(appId), 1 minute),
+        uniqueCount(appId) as 'MyUniqueCount',
+        count(*) as 'MyCount',
+        min(duration) as 'MyMin',
+        max(duration) as 'MyMax',
+        latest(duration) as 'MyLatest',
+        sum(duration) as 'MySum',
+        average(duration) as 'MyAverage',
+        stddev(duration) as 'MyStdDev',
+        percentile(duration, 50, 75, 90) as 'MyPercentile',
+        rate(uniqueCount(appId), 1 hour) as 'MyRate'
+    from
+        Transaction
+    facet
+        appName, appId
+    timeseries
+    """,
+
+    # CASE 6 - compared with aggregated values
+    """
+    select 
+        apdex(duration, 0.02),
+        uniqueCount(appId),
+        count(*),
+        min(duration),
+        max(duration),
+        latest(duration),
+        sum(duration),
+        average(duration),
+        stddev(duration),
+        percentile(duration, 50, 75, 90),
+        rate(uniqueCount(appId), 1 minute),
+        uniqueCount(appId) as 'MyUniqueCount',
+        count(*) as 'MyCount',
+        min(duration) as 'MyMin',
+        max(duration) as 'MyMax',
+        latest(duration) as 'MyLatest',
+        sum(duration) as 'MySum',
+        average(duration) as 'MyAverage',
+        stddev(duration) as 'MyStdDev',
+        percentile(duration, 50, 75, 90) as 'MyPercentile',
+        rate(uniqueCount(appId), 1 hour) as 'MyRate'
+    from
+        Transaction
     compare with
         1 week ago
+    """,
+
+    # CASE 7 - compared with segmented aggregated values
     """
-    # standard = api.query(nrql)
-    # print(json.dumps(standard, sort_keys=True, indent=4))
-    events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
-    print(json.dumps(events, sort_keys=True, indent=4))
+    select
+        apdex(duration, 0.02),
+        uniqueCount(appId),
+        count(*),
+        min(duration),
+        max(duration),
+        latest(duration),
+        sum(duration),
+        average(duration),
+        stddev(duration),
+        percentile(duration, 50, 75, 90),
+        rate(uniqueCount(appId), 1 minute),
+        uniqueCount(appId) as 'MyUniqueCount',
+        count(*) as 'MyCount',
+        min(duration) as 'MyMin',
+        max(duration) as 'MyMax',
+        latest(duration) as 'MyLatest',
+        sum(duration) as 'MySum',
+        average(duration) as 'MyAverage',
+        stddev(duration) as 'MyStdDev',
+        percentile(duration, 50, 75, 90) as 'MyPercentile',
+        rate(uniqueCount(appId), 1 hour) as 'MyRate'
+    from
+        Transaction
+    compare with
+        1 week ago
+    facet
+        appName, appId
+    """,
+
+    # CASE 8 - compare with values over time
+    """
+    select 
+        apdex(duration, 0.02),
+        uniqueCount(appId),
+        count(*),
+        min(duration),
+        max(duration),
+        latest(duration),
+        sum(duration),
+        average(duration),
+        stddev(duration),
+        percentile(duration, 50, 75, 90),
+        rate(uniqueCount(appId), 1 minute),
+        uniqueCount(appId) as 'MyUniqueCount',
+        count(*) as 'MyCount',
+        min(duration) as 'MyMin',
+        max(duration) as 'MyMax',
+        latest(duration) as 'MyLatest',
+        sum(duration) as 'MySum',
+        average(duration) as 'MyAverage',
+        stddev(duration) as 'MyStdDev',
+        percentile(duration, 50, 75, 90) as 'MyPercentile',
+        rate(uniqueCount(appId), 1 hour) as 'MyRate'
+    from
+        Transaction
+    compare with
+        1 week ago
+    timeseries
+    """
+    ]
+
+    # simple test case
+    api = NewRelicQueryAPI()
+    for nrql in nrqls[0:2]:
+        # events = api.query(nrql)
+        events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
+        print(json.dumps(events, sort_keys=True, indent=4))

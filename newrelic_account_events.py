@@ -5,7 +5,7 @@ import os
 
 from global_constants import *
 
-from newrelic_account_metrics import NewRelicAccountMetrics
+from newrelic_account_maturity import NewRelicAccountMaturity
 
 from storage_newrelic_insights import StorageNewRelicInsights
 from storage_google_drive import StorageGoogleDrive

@@ -12,6 +12,12 @@
     "new_relic_insights_api_key": "",
     "new_relic_insights_api_account_id": "",
 
+    "internal_query_api_keys": {
+        "<replace_with_account_id>": "<replace_with_query_api_key>",
+        "<replace_with_account_id>": "<replace_with_query_api_key>",
+        ...
+    }
+    
     "pivots": {
         "Summary": {
             "rows": ["master_name", "account_name"],

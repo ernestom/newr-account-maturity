@@ -5,7 +5,7 @@ from newrelic_account import NewRelicAccount
 
 DEFAULT_APDEX = 0.5
 
-class NewRelicAccountMaturity():
+class NewRelicAccountMetrics():
     "calculates maturity metrics using the New Relic REST API"
 
     __WEEK_TIME = 60*60*24*7
@@ -240,7 +240,7 @@ class NewRelicAccountMaturity():
 
 def main():
     try:
-        account_maturity = NewRelicAccountMaturity()
+        account_maturity = NewRelicAccountMetrics()
         summary, apm_apps, browser_apps, mobile_apps = account_maturity.metrics()
         print(json.dumps(summary, sort_keys=True, indent=4))
         print(json.dumps(apm_apps, sort_keys=True, indent=4))
