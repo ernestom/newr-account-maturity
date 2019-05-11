@@ -372,6 +372,7 @@ if __name__ == "__main__":
     # CASE 2 - aggregated values
     """
     select 
+        percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
         uniqueCount(appId),
@@ -384,6 +385,7 @@ if __name__ == "__main__":
         stddev(duration),
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
+        percentage(count(*), where duration < 0.05) as 'MyPercentage',
         funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
@@ -403,6 +405,7 @@ if __name__ == "__main__":
     # CASE 3 - aggregated values over time
     """
     select 
+        percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
         uniqueCount(appId),
@@ -415,6 +418,7 @@ if __name__ == "__main__":
         stddev(duration),
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
+        percentage(count(*), where duration < 0.05) as 'MyPercentage',
         funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
@@ -435,6 +439,7 @@ if __name__ == "__main__":
     # CASE 4 - segmented aggregated values
     """
     select
+        percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
         uniqueCount(appId),
@@ -447,6 +452,7 @@ if __name__ == "__main__":
         stddev(duration),
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
+        percentage(count(*), where duration < 0.05) as 'MyPercentage',
         funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
@@ -468,6 +474,7 @@ if __name__ == "__main__":
     # CASE 5 - segmented aggregated values over time
     """
     select
+        percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1), 
         apdex(duration, 0.02),
         uniqueCount(appId),
@@ -480,6 +487,7 @@ if __name__ == "__main__":
         stddev(duration),
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
+        percentage(count(*), where duration < 0.05) as 'MyPercentage',
         funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
@@ -502,6 +510,7 @@ if __name__ == "__main__":
     # CASE 6 - compared with aggregated values
     """
     select 
+        percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
         uniqueCount(appId),
@@ -514,6 +523,7 @@ if __name__ == "__main__":
         stddev(duration),
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
+        percentage(count(*), where duration < 0.05) as 'MyPercentage',
         funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
@@ -535,6 +545,7 @@ if __name__ == "__main__":
     # CASE 7 - compared with segmented aggregated values
     """
     select
+        percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
         uniqueCount(appId),
@@ -547,6 +558,7 @@ if __name__ == "__main__":
         stddev(duration),
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
+        percentage(count(*), where duration < 0.05) as 'MyPercentage',
         funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
@@ -569,7 +581,8 @@ if __name__ == "__main__":
 
     # CASE 8 - compare with values over time
     """
-    select 
+    select
+        percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
         uniqueCount(appId),
@@ -582,6 +595,7 @@ if __name__ == "__main__":
         stddev(duration),
         percentile(duration, 50, 75, 90),
         rate(uniqueCount(appId), 1 minute),
+        percentage(count(*), where duration < 0.05) as 'MyPercentage',
         funnel(traceId, where duration < 2 as 'step1', where duration < 1 as 'step2'),
         apdex(duration, 0.02) as 'MyApdex',
         uniqueCount(appId) as 'MyUniqueCount',
