@@ -585,6 +585,6 @@ if __name__ == "__main__":
     # simple test case
     api = NewRelicQueryAPI()
     for nrql in nrqls[0:2]:
-        # events = api.query(nrql)
+        events = api.query(nrql)
         events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
         print(json.dumps(events, sort_keys=True, indent=4))
