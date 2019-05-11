@@ -14,9 +14,17 @@ def get_results_header(contents):
         function = content['function']
         attribute = content.get('attribute', '')
         name = alias if alias else function + '_' + attribute if attribute else function
+        
         if function == 'percentile':
             for threshold in content['thresholds']:
                 names.append(name + '_' + str(threshold)) 
+
+        elif function == 'rate':
+            if not alias:
+                of = content['of']
+                name = name + '_' + of['function'] + '_' + of['attribute']
+            names.append(name)
+
         elif function == 'histogram':
             start = content['start']
             size = content['bucketSize']
@@ -25,6 +33,14 @@ def get_results_header(contents):
                 bucket = '%05.2f' % start + '_' + '%05.2f' % end
                 names.append(name + '_' + bucket)
                 start = end
+        
+        elif function == 'apdex':
+            names.append(name + '_count')
+            names.append(name + '_f')
+            names.append(name + '_s')
+            names.append(name + '_score')
+            names.append(name + '_t')
+
         else:
             names.append(name)
     
@@ -53,11 +69,19 @@ def get_results_values(results, header, include={}, offset=0):
             for percentile in list(result['percentiles'].values()):
                 row.update({header[offset+index]: percentile})
                 index += 1
+
         elif 'histogram' in result:
             for histogram in result['histogram']:
                 row.update({header[offset+index]: histogram})
                 index += 1
-        else:          
+
+        elif 's' in result and 't' in 'result' and 'f' in result: # apdex
+            for apdex_metric in list(result.values()):
+                row.update({header[offset+index]: apdex_metric})
+                index += 1
+
+        # default case get first value in result list
+        else:       
             row.update({header[offset+index]: list(result.values())[0]})
             index += 1
 
@@ -173,13 +197,13 @@ class NewRelicInsightsQueryAPI():
 
     MAX_RETRIES = 5
 
-    def __init__(self, new_relic_account_id=0, query_api_key='', max_retries=MAX_RETRIES):
+    def __init__(self, account_id=0, query_api_key='', max_retries=MAX_RETRIES):
         """ init """
         
-        if not new_relic_account_id:
+        if not account_id:
             new_relic_account_id = os.getenv('NEW_RELIC_ACCOUNT_ID', '')
 
-        if not new_relic_account_id:
+        if not account_id:
             raise Exception('error: missing New Relic account id')
 
         if not query_api_key:
@@ -192,7 +216,7 @@ class NewRelicInsightsQueryAPI():
             'Accept': 'application/json',
             'X-Query-Key': query_api_key
         }
-        self.__url = f'https://insights-api.newrelic.com/v1/accounts/{new_relic_account_id}/query'
+        self.__url = f'https://insights-api.newrelic.com/v1/accounts/{account_id}/query'
         self.__max_retries = max_retries
 
     def query(self, nrql):
@@ -326,7 +350,36 @@ class NewRelicInsightsQueryAPI():
         return fetch_data(results, header, _include, offset) if results else []
 
 if __name__ == "__main__":
-    api = NewRelicInsightsQueryAPI()
-    nrql = "select count(*), average(duration) from Transaction compare with 1 day ago timeseries"
+    account_id = 1
+    query_api_key = ''
+    api = NewRelicInsightsQueryAPI(account_id, query_api_key)
+    nrql = """
+    select 
+        apdex(duration, 0.02),
+        uniqueCount(appId),
+        count(*),
+        min(duration),
+        max(duration),
+        sum(duration),
+        average(duration),
+        stddev(duration),
+        percentile(duration, 50, 75, 90),
+        rate(uniqueCount(appId), 1 minute),
+        uniqueCount(appId) as 'MyUniqueCount',
+        count(*) as 'MyCount',
+        min(duration) as 'MyMin',
+        max(duration) as 'MyMax',
+        sum(duration) as 'MySum',
+        average(duration) as 'MyAverage',
+        stddev(duration) as 'MyStdDev',
+        percentile(duration, 50, 75, 90) as 'MyPercentile',
+        rate(uniqueCount(appId), 1 hour) as 'MyRate'
+    from
+        Transaction
+    since
+        1 day ago
+    """
+    standard = api.query(nrql)
+    print(json.dumps(standard, sort_keys=True, indent=4))
     events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
     print(json.dumps(events, sort_keys=True, indent=4))
