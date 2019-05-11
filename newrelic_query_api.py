@@ -203,7 +203,45 @@ def get_compare_timeseries(results, header, include={}, offset=0):
     
 
 class NewRelicQueryAPI():
-    """ interface to New Relic Query API that always returns a list of events """
+    """ interface to New Relic Query API that always returns a list of events 
+    
+        standard aggregate functions fully supported:
+            - min
+            - max
+            - sum
+            - average
+            - latest
+            - stddev
+            - percentage
+            - filter
+            - count
+            - rate
+
+        complex aggregate functions fully supported:
+            - percentiles: a column for each percentile
+            - histogram: a column for each bucket
+            - apdex: 5 columns (s,f,t,count,score)
+            - funnel a column for each step
+
+        other functions:
+            - keyset: stores a list of keys in one event as a list
+            - uniques: stores a list of uniques in one event as a list
+
+        all NRQL syntax supported:
+            - events lists
+            - single values
+            - comparisons
+                - duplicates all metrics with prefix _compared
+                - stores timestamp_compared attribute
+            - facets
+            - timeseries
+            - combinations of all above
+
+        other tidbits:
+            - timestamp is overwritten with the 'UNTIL TO' one
+            - timewindow stores how many seconds in the analysis
+                - analysis range is [timestamp - timewindows : timestamp]
+    """
 
     MAX_RETRIES = 5
 
@@ -618,6 +656,8 @@ if __name__ == "__main__":
 
     # simple test case
     api = NewRelicQueryAPI()
-    for nrql in nrqls:
-        events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
-        print(json.dumps(events, sort_keys=True, indent=4))
+    #for nrql in nrqls:
+    nrql = 'select uniques(appId) from Transaction'
+    events = api.query(nrql)
+    #events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
+    print(json.dumps(events, sort_keys=True, indent=4))
