@@ -22,7 +22,7 @@ def log(message):
     print(message)
 
 
-def open_file(filename: str = None, mode: str = 'r', *args, **kwargs):
+def open_file(filename=None, mode='r', *args, **kwargs):
     """ open method facade for regular files, stdin and stdout """
 
     if filename == '-':
@@ -74,7 +74,7 @@ def get_queries(query_file):
     """ returns a list of queries from an YAML file """
 
     _, ext = os.path.splitext(query_file)
-    if ext.lower() not in ['yml', 'yaml']:
+    if ext.lower() not in ['.yml', '.yaml']:
         abort('error: YAML query file expected')
 
     with open_file(query_file) as f:
@@ -117,18 +117,20 @@ def do_query(**args):
     api = NewRelicQueryAPI(account_id, query_api_key)
     events = api.events(nrql, include={'account_id': account_id})
 
-    if len(events):
-        try:
-            with open_file(output_file, 'w') as f:
-                if output_format == 'json':
-                    json.dump(events, f, sort_keys=True, indent=4)
-                else:
-                    csv_writer = csv.DictWriter(f, fieldnames=events[0].keys())
-                    csv_writer.writeheader()
-                    for event in events:
-                        csv_writer.writerow(event)
-        except:
-            abort(f'error: cannot write to {output_file}')
+    if not len(events):
+        abort('error: empty events list returned')
+
+    try:
+        with open_file(output_file, 'w') as f:
+            if output_format == 'json':
+                json.dump(events, f, sort_keys=True, indent=4)
+            else:
+                csv_writer = csv.DictWriter(f, fieldnames=events[0].keys())
+                csv_writer.writeheader()
+                for event in events:
+                    csv_writer.writerow(event)
+    except:
+        abort(f'error: cannot write to {output_file}')
 
 
 def do_batch_local(**args):
@@ -137,7 +139,6 @@ def do_batch_local(**args):
     query_file = args['query_file']
     account_file = args['account_file']
     output_folder = args['output_folder']
-    output_format = args['output_format']
 
     queries = get_queries(query_file)
 
@@ -159,8 +160,9 @@ def do_batch_local(**args):
         api = NewRelicQueryAPI(account_id, query_api_key)
 
         for query in queries:
-            events = api.events(query, include=metadata)   
-            storage.dump_data(master_name, events)
+            output_file = master_name + '_' + query['name']
+            events = api.events(query['nrql'], include=metadata)   
+            storage.dump_data(output_file, events)
 
 
 def do_batch_google(**args):
@@ -172,7 +174,5 @@ def do_batch_insights(**args):
 
 
 if __name__ == "__main__":
-    #args, error = get_cmdline_args()
-    #locals()[args.command](**vars(args)) if not error else error()
-    queries = get_queries('./queries-sample.yaml')
-    print(queries)
+    args, error = get_cmdline_args()
+    locals()[args.command](**vars(args)) if not error else error()

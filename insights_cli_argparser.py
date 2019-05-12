@@ -44,26 +44,21 @@ def prepare_batch_local_parser(subparsers):
     batch_local_parser.set_defaults(command='do_batch_local')
     batch_local_parser.add_argument('-v', '--vault-file',
         help='New Relic vault file formatted as CSV [key_name,key_value]',
-        type=argparse.FileType('r')
+        # type=argparse.FileType('r')
     )
     batch_local_parser.add_argument('-q', '--query-file',
         help='Local JSON input queries [{"name": "name", "query": "query"},...]',
-        type=argparse.FileType('r'),
+        # type=argparse.FileType('r'),
         required=True
     )
     batch_local_parser.add_argument('-a', '--account-file',
         help='Local CSV input accounts [master_name,account_name,query_key]',
-        type=argparse.FileType('r'),
+        # type=argparse.FileType('r'),
         required=True
     )
     batch_local_parser.add_argument('-o', '--output-folder',
         help='Local output folder name',
         required=True
-    )
-    batch_local_parser.add_argument('-f', '--output-format',
-        help='output format',
-        choices=['json', 'csv'],
-        default='csv'
     )
 
 
