@@ -4,6 +4,13 @@ import requests
 
 SP = '_'
 
+def abort(message):
+    """ abort the command """
+
+    print(message)
+    exit()
+
+
 def get_results_header(contents):
     """ extracts results names from the contents attribute """
 
@@ -40,12 +47,13 @@ def get_results_header(contents):
                 start = end
         
         elif function == 'apdex':
-            # this other matters as get_result_values is lazy now :-)
+            # this other matters as get_result_values use the same
             names.append(name + '_count')
-            names.append(name + '_f')
             names.append(name + '_s')
-            names.append(name + '_score')
             names.append(name + '_t')
+            names.append(name + '_f')
+            names.append(name + '_score')
+
 
         else:
             names.append(name)
@@ -86,9 +94,17 @@ def get_results_values(results, header, include={}, offset=0):
                 row.update({header[offset+index]: step})
                 index += 1
 
-        elif 's' in result and 't' in 'result' and 'f' in result: # apdex
-            for apdex_metric in list(result.values()):
-                row.update({header[offset+index]: apdex_metric})
+        elif 'score' in result: # apdex
+                # this other matters as get_results_header use the same
+                row.update({header[offset+index]: result['count']})
+                index += 1
+                row.update({header[offset+index]: result['s']})
+                index += 1
+                row.update({header[offset+index]: result['t']})
+                index += 1
+                row.update({header[offset+index]: result['f']})
+                index += 1
+                row.update({header[offset+index]: result['score']})
                 index += 1
 
         else: # default aggregation
@@ -252,15 +268,13 @@ class NewRelicQueryAPI():
         
         if not account_id:
             account_id = os.getenv('NEW_RELIC_ACCOUNT_ID', '')
-
         if not account_id:
-            raise Exception('error: missing New Relic account id')
+            abort('account id not provided and env NEW_RELIC_ACCOUNT_ID not set')
 
         if not query_api_key:
             query_api_key = os.getenv('NEW_RELIC_QUERY_API_KEY', '')
-
         if not query_api_key:
-            raise Exception('error: missing New Relic query API key')
+            abort('query api key not provided and env NEW_RELIC_QUERY_API_KEY not set')
 
         self.__headers = {
             'Accept': 'application/json',
@@ -305,6 +319,11 @@ class NewRelicQueryAPI():
         has_events = is_simple and len(contents) and 'order' in contents[0]
         has_single = is_simple and len(contents) and not 'order' in contents[0]
 
+        print(has_compare)
+        print(has_facets)
+        print(has_timeseries)
+        print(has_events)
+        print(has_single)
         # normalize the contents list
         if has_timeseries and (has_compare or has_facets):
             contents = contents['timeSeries']['contents']
