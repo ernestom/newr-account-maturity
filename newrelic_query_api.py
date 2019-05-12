@@ -319,11 +319,6 @@ class NewRelicQueryAPI():
         has_events = is_simple and len(contents) and 'order' in contents[0]
         has_single = is_simple and len(contents) and not 'order' in contents[0]
 
-        print(has_compare)
-        print(has_facets)
-        print(has_timeseries)
-        print(has_events)
-        print(has_single)
         # normalize the contents list
         if has_timeseries and (has_compare or has_facets):
             contents = contents['timeSeries']['contents']
@@ -670,6 +665,7 @@ if __name__ == "__main__":
 
     # simple test case
     api = NewRelicQueryAPI()
-    for nrql in nrqls:
-        events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
+    for nrql in nrqls[3:4]:
+        events = api.query(nrql)
+        #events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
         print(json.dumps(events, sort_keys=True, indent=4))
