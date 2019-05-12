@@ -1,14 +1,19 @@
 import argparse
 
-
-def get_parsed_commands():
+def get_cmdline_args():
     parser = argparse.ArgumentParser()
+    parser.set_defaults(command=None)
     subparsers = parser.add_subparsers()
+    
     prepare_query_parser(subparsers)
     prepare_batch_local_parser(subparsers)
     prepare_batch_google_parser(subparsers)
     prepare_batch_insights_parser(subparsers)
-    return parser.parse_args()
+    
+    args = vars(parser.parse_args())
+    error = parser.print_help() if args['command'] == None else None
+    
+    return args, error
 
 
 def prepare_query_parser(subparsers):
@@ -30,10 +35,9 @@ def prepare_query_parser(subparsers):
         required=True
     )
 
-
 def prepare_batch_local_parser(subparsers):
     batch_local_parser = subparsers.add_parser('batch-local')
-    batch_local_parser.set_defaults(command='query')
+    batch_local_parser.set_defaults(command='batch-local')
     batch_local_parser.add_argument('-v', '--vault-file',
         help='New Relic vault file formatted as CSV [key_name,key_value]'
     )
@@ -58,7 +62,7 @@ def prepare_batch_local_parser(subparsers):
 
 def prepare_batch_google_parser(subparsers):
     batch_google_parser = subparsers.add_parser('batch-google')
-    batch_google_parser.set_defaults(command='query')
+    batch_google_parser.set_defaults(command='batch-google')
     batch_google_parser.add_argument('-v', '--vault-file',
         help='New Relic vault file formatted as CSV [key_name,key_value]'
     )
@@ -82,7 +86,7 @@ def prepare_batch_google_parser(subparsers):
 
 def prepare_batch_insights_parser(subparsers):
     batch_insights_parser = subparsers.add_parser('batch-insights')
-    batch_insights_parser.set_defaults(command='query')
+    batch_insights_parser.set_defaults(command='batch-insights')
     batch_insights_parser.add_argument('-v', '--vault-file',
         help='New Relic vault file formatted as CSV [key_name,key_value]'
     )

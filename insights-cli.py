@@ -2,7 +2,7 @@
 import json
 import os
 
-from insights_cli_view import get_parsed_commands
+from insights_cli_view import get_cmdline_args
 from newrelic_query_api import NewRelicQueryAPI
 
 
@@ -23,17 +23,20 @@ def do_batch_insights():
 
 
 def main():
-    args = get_parsed_commands()
-    if args.command == 'query':
+    args, error = get_cmdline_args()
+    if error:
+        error()
+
+    elif args['command'] == 'query':
         do_query()
 
-    elif args.command == 'batch-local':
+    elif args['command'] == 'batch-local':
         do_batch_local()
 
-    elif args.command == 'batch-google':
+    elif args['command'] == 'batch-google':
         do_batch_google()
 
-    elif args.command == 'batch-insights':
+    elif args['command'] == 'batch-insights':
         do_batch_insights()
 
     print(args)
