@@ -1,4 +1,6 @@
+argparse
 oauth2client
 googleapiclient
+PyYAML
 requests
 urllib

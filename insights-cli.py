@@ -2,9 +2,11 @@ import csv
 import json
 import os
 import sys
+import yaml
 
 from insights_cli_view import get_cmdline_args
 from newrelic_query_api import NewRelicQueryAPI
+from storage_local import StorageLocal
 
 
 def abort(message):
@@ -13,8 +15,15 @@ def abort(message):
     print(message)
     exit()
 
-def _open(filename: str = None, mode: str = 'r', *args, **kwargs):
-    """ file open method that can handle stdin and stdout """
+
+def log(message):
+    """ lazy man log """
+
+    print(message)
+
+
+def open_file(filename: str = None, mode: str = 'r', *args, **kwargs):
+    """ open method facade for regular files, stdin and stdout """
 
     if filename == '-':
         if 'r' in mode:
@@ -26,12 +35,59 @@ def _open(filename: str = None, mode: str = 'r', *args, **kwargs):
         else:
             handler = stream
     else:
-        handler = open(filename, mode, *args, **kwargs)
+        try:
+            handler = open(filename, mode, *args, **kwargs)
+        except:
+            if filename == '-':
+                if 'r' in mode:
+                    filename = 'stdin'
+                else:
+                    filename = 'stdout'
+            abort(f'error: cannot open {filename}')
 
     return handler
 
 
+def validate_accounts(accounts):
+    """ validates the accounts list """
+
+    if not type(accounts) == list:
+        abort('error: accounts list  expected')
+
+    len_accounts = len(accounts)
+    if not len_accounts:
+        abort('error: empty account list received')
+    
+    account = accounts[0]
+    if not type(account) == dict:
+        abort('error: account dictionary expected')
+
+    keys = ['master_name', 'account_id', 'account_name', 'query_api_key']
+    for key in keys:
+        if not key in account:
+            abort(f'error: {key} in account dictionary expected')
+
+    return len_accounts
+
+   
+def get_queries(query_file):
+    """ returns a list of queries from an YAML file """
+
+    _, ext = os.path.splitext(query_file)
+    if ext.lower() not in ['yml', 'yaml']:
+        abort('error: YAML query file expected')
+
+    with open_file(query_file) as f:
+        try:
+            queries = yaml.load(f)
+        except:
+            abort('error: cannot parse YAML query file')
+
+    return queries
+
+
 def do_query(**args):
+    """ query command """
 
     query = args['query']
     account_id = args['account_id']
@@ -49,8 +105,11 @@ def do_query(**args):
     if not query_api_key:
         abort('query api key not provided and env NEW_RELIC_QUERY_API_KEY not set')
 
+    if not output_file:
+        output_file = '-'
+
     if query == '-':
-        with _open(query) as f:
+        with open_file(query) as f:
             nrql = f.read()
     else:
         nrql = query
@@ -58,38 +117,62 @@ def do_query(**args):
     api = NewRelicQueryAPI(account_id, query_api_key)
     events = api.events(nrql, include={'account_id': account_id})
 
-    if not output_file:
-        output_file = '-'
+    if len(events):
+        try:
+            with open_file(output_file, 'w') as f:
+                if output_format == 'json':
+                    json.dump(events, f, sort_keys=True, indent=4)
+                else:
+                    csv_writer = csv.DictWriter(f, fieldnames=events[0].keys())
+                    csv_writer.writeheader()
+                    for event in events:
+                        csv_writer.writerow(event)
+        except:
+            abort(f'error: cannot write to {output_file}')
 
-    with _open(output_file, 'w') as f:
-        if output_format == 'json':
-            json.dump(events, f, sort_keys=True, indent=4)
-        else:
-            if len(events):
-                csv_writer = csv.DictWriter(f, fieldnames=events[0].keys())
-                csv_writer.writeheader()
-                for event in events:
-                    csv_writer.writerow(event)
+
+def do_batch_local(**args):
+    """ batch-local command """
+
+    query_file = args['query_file']
+    account_file = args['account_file']
+    output_folder = args['output_folder']
+    output_format = args['output_format']
+
+    queries = get_queries(query_file)
+
+    storage = StorageLocal(account_file, output_folder)
+    accounts = storage.get_accounts()
+    len_accounts = validate_accounts(accounts)
+    metadata_keys = ['master_name', 'account_id', 'account_name']
+
+    for index, account in enumerate(accounts):
+
+        master_name = account['master_name']
+        account_id = account['account_id']
+        account_name = account['account_name']
+        query_api_key = account['query_api_key']
+
+        log('{}/{}: {} - {}'.format(index+1, len_accounts, account_id, account_name))
+
+        metadata = {k:v for k,v in account.items() if k in metadata_keys}
+        api = NewRelicQueryAPI(account_id, query_api_key)
+
+        for query in queries:
+            events = api.events(query, include=metadata)   
+            storage.dump_data(master_name, events)
 
 
-def do_batch_local():
+def do_batch_google(**args):
     pass
 
 
-def do_batch_google():
+def do_batch_insights(**args):
     pass
 
-
-def do_batch_insights():
-    pass
-
-
-def main():
-    args, error = get_cmdline_args()
-    if error:
-        error()
-    else:
-        globals()[args.command](**vars(args))
 
 if __name__ == "__main__":
-    main()
+    #args, error = get_cmdline_args()
+    #locals()[args.command](**vars(args)) if not error else error()
+    queries = get_queries('./queries-sample.yaml')
+    print(queries)
