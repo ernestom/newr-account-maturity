@@ -1,6 +1,7 @@
 # Sensitive data
 *.csv
-*.json
+secret*.json
+config.json
 
 # Mac crap
 .DS_Store

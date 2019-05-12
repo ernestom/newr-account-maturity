@@ -4,7 +4,7 @@ import os
 import sys
 import yaml
 
-from insights_cli_view import get_cmdline_args
+from insights_cli_argparser import get_cmdline_args
 from newrelic_query_api import NewRelicQueryAPI
 from storage_local import StorageLocal
 
