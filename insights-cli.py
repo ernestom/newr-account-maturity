@@ -235,10 +235,10 @@ def do_batch_insights(**args):
     vault_file = args['vault_file']
     query_file = args['query_file']
     account_file = args['account_file']
-    account_id = args['account_id']
+    insert_account_id = args['insert_account_id']
     insert_api_key = args['insert_api_key']
 
-    storage = StorageNewRelicInsights(account_file, account_id, insert_api_key)
+    storage = StorageNewRelicInsights(account_file, insert_account_id, insert_api_key)
     accounts = storage.get_accounts()
 
     export_accounts_events(storage, vault_file, query_file, accounts)

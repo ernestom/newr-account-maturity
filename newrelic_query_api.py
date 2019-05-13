@@ -1,14 +1,17 @@
 import json
 import os
+import re
 import requests
 
 SP = '_'
+
 
 def abort(message):
     """ abort the command """
 
     print(message)
     exit()
+
 
 def to_datetime(timestamp):
     """ converts a timestamp to a Sheets / Excel datetime """
@@ -17,6 +20,7 @@ def to_datetime(timestamp):
     EPOCH_START = 25569
     SECONDS_IN_A_DAY = 86400
     return timestamp / SECONDS_IN_A_DAY / 1000 + EPOCH_START
+
 
 def get_results_header(contents):
     """ extracts results names from the contents attribute """
@@ -230,6 +234,18 @@ def get_compare_timeseries(results, header, include={}, offset=0):
     return data
     
 
+def parse_nrql(nrql, params):
+    """ replace variables in nrql """
+
+    # find all occurences of {string} and replace
+    pattern = re.compile(r'\{[a-zA-Z][\w]*}')
+    for var in pattern.findall(nrql):
+        if not var[1:-1] in params:
+            abort(f'error: cannot find {var} in parameters dictionary')
+        nrql.replace(str(var), str(params[var[1:-1]]))
+        
+    return nrql
+
 class NewRelicQueryAPI():
     """ interface to New Relic Query API that always returns a list of events 
     
@@ -295,28 +311,29 @@ class NewRelicQueryAPI():
         self.__url = f'https://insights-api.newrelic.com/v1/accounts/{account_id}/query'
         self.__max_retries = max_retries
 
-    def query(self, nrql):
+    def query(self, nrql, params={}):
         """ request a JSON result from the Insights Query API """
 
+        parsed_nrql = parse_nrql(nrql, params)
         succeeded = False
         count_retries = 0
         while not succeeded and count_retries < self.__max_retries:
             try:
                 count_retries += 1
-                response = requests.get(self.__url, headers=self.__headers, params={'nrql': nrql})
+                response = requests.get(
+                    self.__url, headers=self.__headers, params={'nrql': parsed_nrql}
+                )
                 succeeded = (response.status_code == requests.codes.ok) 
             except:
                 pass
 
         return response.json() if succeeded else []
 
-    def events(self, nrql, include={}):
+    def events(self, nrql, include={}, params={}):
         """ execute the nrql and convert to an events list """
-
-        _include = {}
-        _include.update(include)
-
-        response = self.query(nrql)
+        
+        # get the NRQL results
+        response = self.query(nrql, params=params)
         if not response:
             return []
 
@@ -363,6 +380,10 @@ class NewRelicQueryAPI():
         else:
             offset = 0
         header.extend(get_results_header(contents))
+
+        # kick of the metadata to be included in results
+        _include = {}
+        _include.update(include)
 
         # select the proper parsing function and parameters
         if has_single:
@@ -426,12 +447,14 @@ class NewRelicQueryAPI():
 
 if __name__ == "__main__":
     nrqls = [
-    # CASE 1 - event list
+    # CASE 1 - event list (with a variable example)
     """
     select
         appName, appId
     from
         Transaction
+    where
+        '${account_id}' = '${account_id}'
     """,
 
     # CASE 2 - aggregated values
@@ -679,7 +702,7 @@ if __name__ == "__main__":
 
     # simple test case
     api = NewRelicQueryAPI()
-    for nrql in nrqls:
+    for nrql in nrqls[0:1]:
         #events = api.query(nrql)
-        events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
+        events = api.events(nrql, include={'eventType': 'MyCustomEvent'}, params={'account_id': 1})
         print(json.dumps(events, sort_keys=True, indent=4))
