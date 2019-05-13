@@ -65,7 +65,6 @@ def get_results_header(contents):
             names.append(name + '_f')
             names.append(name + '_score')
 
-
         else:
             names.append(name)
 
@@ -240,9 +239,10 @@ def parse_nrql(nrql, params):
     # find all occurences of {string} and replace
     pattern = re.compile(r'\{[a-zA-Z][\w]*}')
     for var in pattern.findall(nrql):
-        if not var[1:-1] in params:
-            abort(f'error: cannot find {var} in parameters dictionary')
-        nrql.replace(str(var), str(params[var[1:-1]]))
+        param = var[1:-1]
+        if not param in params:
+            abort(f'error: cannot find {param} in parameters dictionary')
+        nrql = nrql.replace(var, str(params[param]))
 
     return nrql
 
