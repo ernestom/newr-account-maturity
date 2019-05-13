@@ -154,7 +154,7 @@ def export_metrics(config):
         ]
         for storage in storages:
             if storage:
-                storage.dump_data(SUMMARY_NAME, account_summary)
+                storage.dump_data(SUMMARY_NAME, SUMMARY_NAME, account_summary)
                 storage.dump_data(master_name, APM_NAME, apm_apps)
                 storage.dump_data(master_name, BROWSER_NAME, browser_apps)
                 storage.dump_data(master_name, MOBILE_NAME, mobile_apps)
