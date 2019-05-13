@@ -1,4 +1,4 @@
-{   
+{
     "account_file": "/Users/ThyWoof/accounts.csv",
 
     "output_folder": "/Users/ThyWoof/data",
@@ -11,13 +11,13 @@
 
     "insert_api_key": "INSIGHTS_INSERT_API_KEY",
     "insert_account_id": "INSIGHTS_ACCOUNT_ID",
-    
+
     "pivots": {
         "Summary": {
             "rows": ["master_name", "account_name"],
             "columns": [],
             "values": {
-                "users_total": "SUM", 
+                "users_total": "SUM",
                 "apm_total": "SUM"
             }
         },
