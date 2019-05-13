@@ -7,6 +7,7 @@ import yaml
 from insights_cli_argparser import get_cmdline_args
 from newrelic_query_api import NewRelicQueryAPI
 from storage_local import StorageLocal
+from storage_google_drive import StorageGoogleDrive
 
 
 def abort(message):
@@ -48,28 +49,26 @@ def open_file(filename=None, mode='r', *args, **kwargs):
     return handler
 
 
-def validate_accounts(accounts):
-    """ validates the accounts list """
+def get_vault(vault_file):
+    """ returns a dict of keys from a CSV file """ 
 
-    if not type(accounts) == list:
-        abort('error: accounts list  expected')
+    _, ext = os.path.splitext(vault_file)
+    if ext.lower() not in ['.csv']:
+        abort('error: CSV query file expected')
 
-    len_accounts = len(accounts)
-    if not len_accounts:
-        abort('error: empty account list received')
-    
-    account = accounts[0]
-    if not type(account) == dict:
-        abort('error: account dictionary expected')
+    with open_file(vault_file) as f:
+        try:
+            csv_reader = csv.DictReader(f, delimiter=',')
+            return {
+                row['secret']: {
+                    'account_id': row['account_id'], 
+                    'query_api_key': row['query_api_key']
+                } for row in csv_reader
+            }
+        except:
+            abort('error: cannot parse CSV vault file')
 
-    keys = ['master_name', 'account_id', 'account_name', 'query_api_key']
-    for key in keys:
-        if not key in account:
-            abort(f'error: {key} in account dictionary expected')
 
-    return len_accounts
-
-   
 def get_queries(query_file):
     """ returns a list of queries from an YAML file """
 
@@ -79,11 +78,32 @@ def get_queries(query_file):
 
     with open_file(query_file) as f:
         try:
-            queries = yaml.load(f)
+            queries = yaml.load(f, Loader=yaml.FullLoader)
         except:
             abort('error: cannot parse YAML query file')
 
     return queries
+
+
+def validate_input(subject, data, keys):
+    """ validates the subjected input """
+
+    if not type(data) == list:
+        abort(f'error: {subject} list expected')
+
+    len_data = len(data)
+    if not len_data:
+        abort(f'error: empty {subject} list received')
+    
+    item = data[0]
+    if not type(item) == dict:
+        abort(f'error: {subject} dictionary expected')
+
+    for key in keys:
+        if not key in item:
+            abort(f'error: {key} in account dictionary expected')
+
+    return len_data
 
 
 def do_query(**args):
@@ -133,40 +153,82 @@ def do_query(**args):
         abort(f'error: cannot write to {output_file}')
 
 
-def do_batch_local(**args):
-    """ batch-local command """
+def export_accounts_events(storage, vault_file, query_file, accounts, joiner):
 
-    query_file = args['query_file']
-    account_file = args['account_file']
-    output_folder = args['output_folder']
+    vault = get_vault(vault_file) if vault_file else {}
 
     queries = get_queries(query_file)
+    len_queries = validate_input('queries', queries, ['name', 'nrql'])
 
-    storage = StorageLocal(account_file, output_folder)
-    accounts = storage.get_accounts()
-    len_accounts = validate_accounts(accounts)
-    metadata_keys = ['master_name', 'account_id', 'account_name']
+    metadata_keys = ['master_name', 'account_id', 'account_name', 'query_api_key']
+    len_accounts = validate_input('accounts', accounts, metadata_keys)
+    metadata_keys.remove('query_api_key')
 
-    for index, account in enumerate(accounts):
+    for idx_account, account in enumerate(accounts):
 
         master_name = account['master_name']
         account_id = account['account_id']
         account_name = account['account_name']
         query_api_key = account['query_api_key']
 
-        log('{}/{}: {} - {}'.format(index+1, len_accounts, account_id, account_name))
+        log('account {}/{}: {} - {}'.format(idx_account+1, len_accounts, account_id, account_name))
 
         metadata = {k:v for k,v in account.items() if k in metadata_keys}
-        api = NewRelicQueryAPI(account_id, query_api_key)
 
-        for query in queries:
-            output_file = master_name + '_' + query['name']
-            events = api.events(query['nrql'], include=metadata)   
+        for idx_query, query in enumerate(queries):
+
+            name = query['name']
+            nrql = query['nrql']
+            secret = query.get('secret', None)
+
+            log('query {}/{}: {}'.format(idx_query+1, len_queries, name))
+
+            # check if a vaulted secret is required
+            if secret:
+                if not secret in vault:
+                    abort(f'error: cannot find {secret} in vault')
+                account_id = vault[secret]['account_id']
+                query_api_key = vault[secret]['query_api_key']
+            else:
+                account_id = account['account_id']
+                query_api_key = account['query_api_key']
+                
+            api = NewRelicQueryAPI(account_id, query_api_key)
+            events = api.events(query['nrql'], include=metadata)  
+            output_file = master_name + joiner + query['name'] 
             storage.dump_data(output_file, events)
 
 
+def do_batch_local(**args):
+    """ batch-local command """
+
+    vault_file = args['vault_file']
+    query_file = args['query_file']
+    account_file = args['account_file']
+    output_folder = args['output_folder']
+    
+    storage = StorageLocal(account_file, output_folder)
+    accounts = storage.get_accounts()
+
+    export_accounts_events(storage, vault_file, query_file, accounts, '_')
+
+
 def do_batch_google(**args):
-    pass
+    """ batch-local command """
+
+    vault_file = args['vault_file']
+    query_file = args['query_file']
+    account_file_id = args['account_file_id']
+    output_folder_id = args['output_folder_id']
+    secret_file = args['secret_file']
+
+    storage = StorageGoogleDrive(account_file_id, output_folder_id, secret_file)
+    accounts = storage.get_accounts()
+     
+    export_accounts_events(storage, vault_file, query_file, accounts, '/')
+
+    # add some nice formatting to all Google Sheets
+    storage.format_data()
 
 
 def do_batch_insights(**args):

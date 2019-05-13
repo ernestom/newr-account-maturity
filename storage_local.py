@@ -38,7 +38,7 @@ class StorageLocal():
             return list(dict(row) for row in csv_reader) 
         
     def dump_data(self, output_file, data=[]):
-        """ dumps the data to the output file """
+        """ appends the data to the output file """
 
         # creates the output folder on the first dump
         if not len(self.__cache) and not os.path.exists(self.__output_folder):

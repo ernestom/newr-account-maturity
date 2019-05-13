@@ -71,12 +71,14 @@ def dump_metrics(config):
     # setup the required input and output instances
     if config['input_local'] or config['output_local']:
         local_storage = StorageLocal(
+            config['local_account_list_path'],
             config['local_output_folder_path'],
             time.localtime(timestamp)
         )
 
     if config['input_google'] or config['output_google']:
         google_storage = StorageGoogleDrive(
+            config['google_account_list_id'], 
             config['google_output_folder_id'], 
             config['google_secret_file_path'],
             time.localtime(timestamp)
@@ -91,14 +93,9 @@ def dump_metrics(config):
 
     # get the accounts list
     if config['input_local']:
-        accounts = local_storage.get_accounts(
-            config['local_account_list_path']
-        )
+        accounts = local_storage.get_accounts()
     elif config['input_google']:
-        accounts = google_storage.get_accounts(
-            config['google_account_list_id'], 
-            config['google_account_list_sheet']
-        )
+        accounts = google_storage.get_accounts(config['google_account_list_sheet'])
     else:
         accounts = []
 

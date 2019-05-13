@@ -4,6 +4,10 @@ import requests
 
 SP = '_'
 
+# 1970-01-01 00:00:00 in Google Sheets / Microsoft Excel
+EPOCH_START = 25569
+SECONDS_IN_A_DAY = 86400
+
 def abort(message):
     """ abort the command """
 
@@ -128,6 +132,10 @@ def get_events(results, header, include={}, offset=0):
     for event in events:
         row = {k:v for k,v in include.items()}
         row.update({k:v for k,v in event.items()})
+        if 'timestamp' in row:
+            row.update({
+                'datetime': row['timestamp'] / SECONDS_IN_A_DAY + EPOCH_START
+            })
         data.append(row)
 
     return data
@@ -154,7 +162,8 @@ def get_timeseries(results, header, include={}, offset=0, prefix=''):
         row.update({
             'inspectedCount' + prefix: result['inspectedCount'],
             'timewindow' + prefix: result['endTimeSeconds'] - result['beginTimeSeconds'],
-            'timestamp' + prefix: result['endTimeSeconds']
+            'timestamp' + prefix: result['endTimeSeconds'],
+            'datetime' + prefix: result['endTimeSeconds'] / SECONDS_IN_A_DAY + EPOCH_START
         })
         data.append(row)
 
@@ -665,7 +674,7 @@ if __name__ == "__main__":
 
     # simple test case
     api = NewRelicQueryAPI()
-    for nrql in nrqls[3:4]:
+    for nrql in nrqls:
         events = api.query(nrql)
         #events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
         print(json.dumps(events, sort_keys=True, indent=4))
