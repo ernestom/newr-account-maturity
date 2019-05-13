@@ -1,19 +1,22 @@
+import csv
 import json
-import os
 import requests
-import time
+
 
 class StorageNewRelicInsights():
 
     INSIGHTS_MAX_EVENTS = 1000
     MAX_RETRIES = 5 # max number of requests before giving up
 
-    def __init__(self, new_relic_account_id, insert_api_key, timestamp=None):
+    def __init__(self, account_file, account_id, insert_api_key, timestamp=None):
+        """ init """
+
+        self.__account_file = account_file
         self.__headers = {
             'Content-Type': 'application/json',
             'X-Insert-Key': insert_api_key
         }
-        self.__url = f'https://insights-collector.newrelic.com/v1/accounts/{new_relic_account_id}/events'
+        self.__url = f'https://insights-collector.newrelic.com/v1/accounts/{account_id}/events'
         self.__timestamp = timestamp
 
     def __get_events(self, event_type, data=[]):
@@ -28,10 +31,16 @@ class StorageNewRelicInsights():
             events.append(_row)
         return events
 
-    def get_accounts(self, name):
-        raise Exception('error: get_accounts not implemented on StorageNewRelicInsights class.')
+    def get_accounts(self):
+        """ returns a list of accounts dictionaries """
+
+        with open(self.__account_file) as f:
+            csv_reader = csv.DictReader(f, delimiter=',')
+            return list(dict(row) for row in csv_reader) 
         
-    def dump_metrics(self, event_type, data=[], max_retries=MAX_RETRIES):
+    def dump_data(self, event_type, data=[], max_retries=MAX_RETRIES):
+        """ appends the data to the event """
+        
         if type(data) == list and data:
             events = self.__get_events(event_type, data)
 

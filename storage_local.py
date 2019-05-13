@@ -33,7 +33,7 @@ class StorageLocal():
     def get_accounts(self):
         """ returns a list of accounts dictionaries """
 
-        with open(os.path.join(self.__account_file)) as f:
+        with open(self.__account_file) as f:
             csv_reader = csv.DictReader(f, delimiter=',')
             return list(dict(row) for row in csv_reader) 
         

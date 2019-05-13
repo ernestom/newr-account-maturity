@@ -8,6 +8,7 @@ from insights_cli_argparser import get_cmdline_args
 from newrelic_query_api import NewRelicQueryAPI
 from storage_local import StorageLocal
 from storage_google_drive import StorageGoogleDrive
+from storage_newrelic_insights import StorageNewRelicInsights
 
 
 def abort(message):
@@ -153,7 +154,7 @@ def do_query(**args):
         abort(f'error: cannot write to {output_file}')
 
 
-def export_accounts_events(storage, vault_file, query_file, accounts, joiner):
+def export_accounts_events(storage, vault_file, query_file, accounts):
 
     vault = get_vault(vault_file) if vault_file else {}
 
@@ -194,8 +195,17 @@ def export_accounts_events(storage, vault_file, query_file, accounts, joiner):
                 query_api_key = account['query_api_key']
                 
             api = NewRelicQueryAPI(account_id, query_api_key)
-            events = api.events(query['nrql'], include=metadata)  
-            output_file = master_name + joiner + query['name'] 
+            events = api.events(query['nrql'], include=metadata) 
+
+            # there might be a better way of doing that
+            storage_class_name = type(storage).__name__
+            if storage_class_name == 'StorageLocal':
+                output_file = master_name + '_' + query['name'] 
+            elif storage_class_name == 'StorageGoogleDrive':
+                output_file = master_name + '/' + query['name']
+            elif storage_class_name == 'StorageNewRelicInsights':
+                output_file = query['name']
+
             storage.dump_data(output_file, events)
 
 
@@ -210,7 +220,7 @@ def do_batch_local(**args):
     storage = StorageLocal(account_file, output_folder)
     accounts = storage.get_accounts()
 
-    export_accounts_events(storage, vault_file, query_file, accounts, '_')
+    export_accounts_events(storage, vault_file, query_file, accounts)
 
 
 def do_batch_google(**args):
@@ -225,15 +235,25 @@ def do_batch_google(**args):
     storage = StorageGoogleDrive(account_file_id, output_folder_id, secret_file)
     accounts = storage.get_accounts()
      
-    export_accounts_events(storage, vault_file, query_file, accounts, '/')
+    export_accounts_events(storage, vault_file, query_file, accounts)
 
     # add some nice formatting to all Google Sheets
     storage.format_data()
 
 
 def do_batch_insights(**args):
-    pass
+    """ batch-insights command """
 
+    vault_file = args['vault_file']
+    query_file = args['query_file']
+    account_file = args['account_file']
+    account_id = args['account_id']
+    insert_api_key = args['insert_api_key']
+
+    storage = StorageNewRelicInsights(account_file, account_id, insert_api_key)
+    accounts = storage.get_accounts()
+
+    export_accounts_events(storage, vault_file, query_file, accounts)
 
 if __name__ == "__main__":
     args, error = get_cmdline_args()
