@@ -110,7 +110,7 @@ def export_metrics(config):
     if config['input_local']:
         accounts = local_storage.get_accounts()
     elif config['input_google']:
-        accounts = google_storage.get_accounts()
+        accounts = google_storage.get_accounts(config['account_sheet'])
     else:
         accounts = []
 
