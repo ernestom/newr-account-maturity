@@ -1,13 +1,19 @@
-import csv
+import json
 import os
 import time
-import json
 
 from oauth2client.service_account import ServiceAccountCredentials
 from googleapiclient import discovery
 
-from global_constants import *
 from google_sheets_helpers import *
+
+
+def abort(message):
+    """ abort the command """
+
+    print(message)
+    exit()
+
 
 class StorageGoogleDrive():
 
@@ -18,30 +24,40 @@ class StorageGoogleDrive():
 
     get_output_folder_name = lambda self,t: time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', t)
 
-    def __init__(self, folder_id, json_keyfile_name, writers=[], readers=[], timestamp=None):
+    def __init__(self, account_file_id, output_folder_id, secret_file, subfolder_prefix='RUN', timestamp=None, writers=[], readers=[]):
+        """ init """
+        
         self.__cache = {}
+        self.__account_file_id = account_file_id
+        self.__output_folder_id = output_folder_id
+        self.__run_folder = \
+            time.strftime(
+                f'{subfolder_prefix}_%Y-%m-%d_%H-%M', 
+                time.localtime() if not timestamp else timestamp
+            )
+        self.__run_folder_id = None
         self.__readers = readers
         self.__writers = writers
 
-        credentials = ServiceAccountCredentials.from_json_keyfile_name(
-            json_keyfile_name,
-            [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/spreadsheets'
-            ]
-        )
-        drive = discovery.build('drive', 'v3', credentials=credentials)
-        sheets = discovery.build('sheets', 'v4', credentials=credentials)
+        if not os.path.exists(secret_file):
+            abort(f'error: cannot find secret file {secret_file}')
+        
+        try:
+            credentials = ServiceAccountCredentials.from_json_keyfile_name(
+                secret_file,
+                [
+                    'https://www.googleapis.com/auth/drive',
+                    'https://www.googleapis.com/auth/spreadsheets'
+                ]
+            )
+            drive = discovery.build('drive', 'v3', credentials=credentials)
+            sheets = discovery.build('sheets', 'v4', credentials=credentials)
+        except:
+            abort('error: cannot open a connection to Google API')
 
         self.__files = drive.files() # pylint: disable=no-member
         self.__permissions = drive.permissions() # pylint: disable=no-member
         self.__spreadsheets = sheets.spreadsheets() # pylint: disable=no-member
-
-        if timestamp:
-            output_folder_name = self.get_output_folder_name(timestamp)
-        else:
-            output_folder_name = self.get_output_folder_name(time.localtime())
-        self.output_folder_id, _ = self.__create_object('folder', output_folder_name, folder_id)
 
     def __set_permissions(self, object_id):
         """ set readers / writers permission on object id """
@@ -60,8 +76,8 @@ class StorageGoogleDrive():
     def __get_object_id(self, object_type, object_name, parent_id):
         """ search for an object name / type under a parent id and return the id """
 
-        assert object_type in StorageGoogleDrive.OBJECT_TYPES,\
-        'error: unsuported object type'
+        if not object_type in StorageGoogleDrive.OBJECT_TYPES:
+            abort('error: unsuported Google Drive object type')
 
         mime_type = StorageGoogleDrive.OBJECT_TYPES[object_type]
         query = f"'{parent_id}' in parents and name = '{object_name}' and mimeType = '{mime_type}'"
@@ -171,12 +187,17 @@ class StorageGoogleDrive():
             body = {"requests": requests}
             self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
-
-    def get_handle(self, spreadsheet_name, sheet_name):
+    def __get_handle(self, spreadsheet_sheet_name):
         """ return a (spreadsheet,sheet) handle and a flag if just created """
 
+        if spreadsheet_sheet_name.count('/') != 1:
+            abort('error: output name must use spreadsheet/sheet format')
+        
+        spreadsheet_name, sheet_name = spreadsheet_sheet_name.split('/')
+
         if not spreadsheet_name in self.__cache:
-            spreadsheet_id, just_created = self.__create_object('spreadsheet', spreadsheet_name, self.output_folder_id)
+            spreadsheet_id, just_created = self.__create_object(
+                'spreadsheet', spreadsheet_name, self.__run_folder_id)
             self.__cache.update({spreadsheet_name: spreadsheet_id})
         else:
             spreadsheet_id = self.__cache[spreadsheet_name]
@@ -189,10 +210,10 @@ class StorageGoogleDrive():
         
         return self.__cache[(spreadsheet_name,sheet_name)], just_created
 
-    def get_accounts(self, spreadsheet_id, _range='Sheet1'):
+    def get_accounts(self, sheet_range='Sheet1'):
         """ return a list of accounts dictionaries """
 
-        values = self.__get_dataset(spreadsheet_id, _range)
+        values = self.__get_dataset(self.__account_file_id, sheet_range)
         accounts = []
         if len(values) > 1:
             headers, rows = values[0], values[1:]
@@ -201,15 +222,19 @@ class StorageGoogleDrive():
     
         return accounts
         
-    def dump_metrics(self, name, data):
-        """ append the data to the spreadsheet/sheet decorating each row with optional metadata """
+    def dump_data(self, spreadsheet_sheet_name, data=[]):
+        """ appends the data to the output spreadsheet/sheet """
 
-        assert name.count('/') == 1,\
-        'error: invalid name. it must follow spreadsheet/sheet nomenclature'
+        # creates the output folder on the first dump
+        if not self.__run_folder_id:
+            self.__run_folder_id, _ = self.__create_object(
+                'folder', 
+                self.__run_folder, 
+                self.__output_folder_id
+            )
 
-        if type(data) == list and data:
-            spreadsheet_name, sheet_name = name.split('/')
-            (spreadsheet_id, sheet_id), just_created = self.get_handle(spreadsheet_name, sheet_name)
+        if type(data) == list and len(data):
+            (spreadsheet_id, sheet_id), just_created = self.__get_handle(spreadsheet_sheet_name)
 
             if just_created:
                 headers = list(data[0].keys())
@@ -218,13 +243,11 @@ class StorageGoogleDrive():
             else:
                 sheet_data = []
             
-            for row in data:
-                sheet_data.append(list(row.values()))
-
+            sheet_data.extend([list(row.values()) for row in data])
             self.__append_dataset(spreadsheet_id, sheet_id, sheet_data)
 
-    def format_spreadsheets(self, pivots={}):
-        """ format every spreadsheet / sheet created for a better end-user experience """
+    def format_data(self, pivots={}):
+        """ format all spreadsheets / sheets in the cache """
 
         requests_queue = {}
         for k,v in iter(self.__cache.items()):

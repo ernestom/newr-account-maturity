@@ -1,4 +1,3 @@
-#!env/bin/python
 import json
 import os
 import requests
@@ -8,6 +7,12 @@ from datetime import datetime, date, timedelta
 
 MAX_PAGES = 200 # max number of pages to fetch on a paginating endpoint
 MAX_RETRIES = 5 # max number of requests before giving up
+
+def abort(message):
+    """ abort the command """
+
+    print(message)
+    exit()
 
 
 def empty_next_url(response):
@@ -156,7 +161,7 @@ class NewRelicRestAPI():
         if not rest_api_key:
             rest_api_key = os.getenv('NEW_RELIC_REST_API_KEY', '')
         if not rest_api_key:
-            raise Exception('error: missing New Relic REST API KEY')
+            abort('rest api key not provided and env NEW_RELIC_REST_API_KEY not set')
         self.__headers = {'X-API-Key': rest_api_key}
 
     def get(self, endpoint, params={}, next_url=None, max_retries=MAX_RETRIES):
@@ -207,22 +212,22 @@ class NewRelicRestAPI():
 def main():
     try:
         if len(sys.argv) == 1:
-            raise Exception('usage: newrelic_rest_api.py endpoint_name [id]')
+            abort('usage: newrelic_rest_api.py endpoint_name [id]')
 
         endpoint = sys.argv[1]
         if endpoint in ['application_hosts', 'application_instances', 'application_deployments']:
             if len(sys.argv) != 3:
-                raise Exception('error: this endpoint requires an entity id')
+                abort('error: this endpoint requires an entity id')
             else:
                 params = {'entity_id': sys.argv[2]}
         elif endpoint == 'alerts_entity_conditions':
             if len(sys.argv) != 3:
-                raise Exception('error: this endpoint requires a policy id')
+                abort('error: this endpoint requires a policy id')
             else:
                 params = {'policy_id': sys.argv[2]}
         else:
             if len(sys.argv) != 2:
-                raise Exception('error: this endpoint does not take any id')
+                abort('error: this endpoint does not take any id')
             else:
                 params = {}
    
@@ -230,7 +235,7 @@ def main():
         result, ok = api.get(endpoint, params=params)
 
         if not ok:
-            raise Exception('error: could not fetch data')
+            abort('error: could not fetch data')
         
         print(json.dumps(result, sort_keys=True, indent=4))
 

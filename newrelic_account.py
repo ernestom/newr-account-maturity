@@ -1,8 +1,14 @@
-#!env/bin/python
 import json
 import sys
 
 from newrelic_rest_api import NewRelicRestAPI
+
+def abort(message):
+    """ abort the command """
+
+    print(message)
+    exit()
+
 
 class NewRelicAccount():
     "New Relic Account with a caching layer on top of the REST API"
@@ -153,18 +159,18 @@ def main():
     ]
     try:
         if len(sys.argv) == 1:
-            raise Exception('usage: newrelic_account.py set_name')
+            abort('usage: newrelic_account.py set_name')
 
         set_name = sys.argv[1]
         if not set_name in set_names:
-            raise Exception('error: invalid set name')
+            abort('error: invalid set name')
 
         account = NewRelicAccount()
         method = getattr(account, set_name)
         result, ok = method()
 
         if not ok:
-            raise Exception('error: could not fetch data')
+            abort('error: could not fetch data')
         
         print(json.dumps(result, sort_keys=True, indent=4))
 

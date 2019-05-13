@@ -5,7 +5,7 @@ from newrelic_account import NewRelicAccount
 
 DEFAULT_APDEX = 0.5
 
-class NewRelicAccountMaturity():
+class NewRelicAccountMetrics():
     "calculates maturity metrics using the New Relic REST API"
 
     __WEEK_TIME = 60*60*24*7
@@ -65,7 +65,7 @@ class NewRelicAccountMaturity():
 
     def reset_metrics(self):
         self.__metrics = {}
-        for metric_name in NewRelicAccountMaturity.__METRIC_NAMES:
+        for metric_name in NewRelicAccountMetrics.__METRIC_NAMES:
             self.__metrics[metric_name] = 0
 
     def cache_apps_with_deployments(self):
@@ -217,9 +217,9 @@ class NewRelicAccountMaturity():
                 self.__metrics['alerts_policies_per_target'] += 1
 
             update_delta = current_time - alerts_policy['updated_at'] / 1000
-            if update_delta < NewRelicAccountMaturity.__WEEK_TIME:
+            if update_delta < NewRelicAccountMetrics.__WEEK_TIME:
                 self.__metrics['alerts_policies_a_week_old'] += 1
-            elif update_delta < NewRelicAccountMaturity.__MONTH_TIME:
+            elif update_delta < NewRelicAccountMetrics.__MONTH_TIME:
                 self.__metrics['alerts_policies_a_month_old'] += 1
 
     def metrics(self):
@@ -240,7 +240,7 @@ class NewRelicAccountMaturity():
 
 def main():
     try:
-        account_maturity = NewRelicAccountMaturity()
+        account_maturity = NewRelicAccountMetrics()
         summary, apm_apps, browser_apps, mobile_apps = account_maturity.metrics()
         print(json.dumps(summary, sort_keys=True, indent=4))
         print(json.dumps(apm_apps, sort_keys=True, indent=4))
