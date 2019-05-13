@@ -5,11 +5,13 @@ import requests
 
 SP = '_'
 
+
 def abort(message):
     """ abort the command """
 
     print(message)
     exit()
+
 
 def to_datetime(timestamp):
     """ converts a timestamp to a Sheets / Excel datetime """
@@ -18,6 +20,7 @@ def to_datetime(timestamp):
     EPOCH_START = 25569
     SECONDS_IN_A_DAY = 86400
     return timestamp / SECONDS_IN_A_DAY / 1000 + EPOCH_START
+
 
 def get_results_header(contents):
     """ extracts results names from the contents attribute """
@@ -328,10 +331,8 @@ class NewRelicQueryAPI():
 
     def events(self, nrql, include={}, params={}):
         """ execute the nrql and convert to an events list """
-
-        _include = {}
-        _include.update(include)
-
+        
+        # get the NRQL results
         response = self.query(nrql, params=params)
         if not response:
             return []
@@ -379,6 +380,10 @@ class NewRelicQueryAPI():
         else:
             offset = 0
         header.extend(get_results_header(contents))
+
+        # kick of the metadata to be included in results
+        _include = {}
+        _include.update(include)
 
         # select the proper parsing function and parameters
         if has_single:
