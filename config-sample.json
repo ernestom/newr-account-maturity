@@ -1,21 +1,16 @@
 {   
-    "local_account_list_path": "",
+    "account_file": "/Users/ThyWoof/accounts.csv",
 
-    "local_output_folder_path": "",
+    "output_folder": "/Users/ThyWoof/data",
 
-    "google_account_list_id": "",
-    "google_account_list_sheet": "",
+    "#account_file_id": "1Bks4AV4XsvrcrNFwG2y2zsE6zzVQ5odkcAeAz7Xx-V0",
+    "#account_sheet": "Sheet1",
 
-    "google_output_folder_id": "",
-    "google_secret_file_path": "",
+    "output_folder_id": "1c3odm9cp-42atae8MGFsiQIw6O3QL0rL",
+    "secret_file": "/Users/ThyWoof/google_secret.json",
 
-    "new_relic_insights_api_key": "",
-    "new_relic_insights_api_account_id": "",
-
-    "internal_query_api_keys": {
-        "replace_with_account_id_1": "<replace_with_query_api_key>",
-        "replace_with_account_id_2": "<replace_with_query_api_key>"
-    },
+    "insert_api_key": "INSIGHTS_INSERT_API_KEY",
+    "insert_account_id": "INSIGHTS_ACCOUNT_ID",
     
     "pivots": {
         "Summary": {
