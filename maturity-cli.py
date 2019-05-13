@@ -51,7 +51,7 @@ def get_config():
     output_google = bool(output_folder_id)
     output_insights = bool(insert_api_key)
 
-    if not (input_local ^ input_google):
+    if input_local and input_google:
         abort('error: one and only one input list can be set (local or google)')
 
     if not secret_file and output_folder_id:
