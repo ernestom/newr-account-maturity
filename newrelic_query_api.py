@@ -454,7 +454,7 @@ if __name__ == "__main__":
     from
         Transaction
     where
-        '${account_id}' = '${account_id}'
+        '{account_id}' = '{account_id}'
     """,
 
     # CASE 2 - aggregated values
