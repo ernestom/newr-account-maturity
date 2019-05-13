@@ -8,7 +8,7 @@ class StorageNewRelicInsights():
     INSIGHTS_MAX_EVENTS = 1000
     MAX_RETRIES = 5 # max number of requests before giving up
 
-    def __init__(self, account_file, account_id, insert_api_key, timestamp=None):
+    def __init__(self, account_file, insert_account_id, insert_api_key, timestamp=None):
         """ init """
 
         self.__account_file = account_file
@@ -16,7 +16,7 @@ class StorageNewRelicInsights():
             'Content-Type': 'application/json',
             'X-Insert-Key': insert_api_key
         }
-        self.__url = f'https://insights-collector.newrelic.com/v1/accounts/{account_id}/events'
+        self.__url = f'https://insights-collector.newrelic.com/v1/accounts/{insert_account_id}/events'
         self.__timestamp = timestamp
 
     def __get_events(self, event_type, data=[]):

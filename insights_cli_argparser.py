@@ -106,7 +106,7 @@ def prepare_batch_insights_parser(subparsers):
         # type=argparse.FileType('r'),
         required=True
     )
-    batch_insights_parser.add_argument('-i', '--account-id',
+    batch_insights_parser.add_argument('-i', '--insert-account-id',
         help='New Relic Insights insert API key',
         required=True
     )
