@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import requests
 
 SP = '_'
@@ -233,8 +234,13 @@ def get_compare_timeseries(results, header, include={}, offset=0):
 def parse_nrql(nrql, params):
     """ replace variables in nrql """
 
-    # TODO: find all occurences of {string} and replace
-    
+    # find all occurences of {string} and replace
+    pattern = re.compile(r'\{[a-zA-Z][\w]*}')
+    for var in pattern.findall(nrql):
+        if not var[1:-1] in params:
+            abort(f'error: cannot find {var} in parameters dictionary')
+        nrql.replace(var, params[var[1:-1]])
+        
     return nrql
 
 class NewRelicQueryAPI():
