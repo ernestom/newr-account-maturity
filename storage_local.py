@@ -4,7 +4,7 @@ import time
 
 class StorageLocal():
 
-    def __init__(self, account_file, output_folder, subfolder_prefix='RUN', timestamp=None):
+    def __init__(self, account_file, output_folder, timestamp=None, prefix='RUN'):
         """ init """
         
         self.__cache = {}
@@ -13,7 +13,7 @@ class StorageLocal():
             os.path.join(
                 output_folder,
                 time.strftime(
-                    f'{subfolder_prefix}_%Y-%m-%d_%H-%M', 
+                    f'{prefix}_%Y-%m-%d_%H-%M', 
                     time.localtime() if not timestamp else timestamp
                 )
             )
@@ -37,7 +37,7 @@ class StorageLocal():
             csv_reader = csv.DictReader(f, delimiter=',')
             return list(dict(row) for row in csv_reader) 
         
-    def dump_data(self, output_file, data=[]):
+    def dump_data(self, master, output_file, data=[]):
         """ appends the data to the output file """
 
         # creates the output folder on the first dump
@@ -45,7 +45,7 @@ class StorageLocal():
             os.mkdir(self.__output_folder, mode=0o755)
 
         if type(data) == list and len(data):
-            handle, just_created = self.__get_handle(output_file)
+            handle, just_created = self.__get_handle(master + '_' + output_file)
             csv_writer = csv.DictWriter(handle, fieldnames=data[0].keys())
             if just_created:
                 csv_writer.writeheader()

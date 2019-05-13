@@ -4,16 +4,19 @@ import requests
 
 SP = '_'
 
-# 1970-01-01 00:00:00 in Google Sheets / Microsoft Excel
-EPOCH_START = 25569
-SECONDS_IN_A_DAY = 86400
-
 def abort(message):
     """ abort the command """
 
     print(message)
     exit()
 
+def to_datetime(timestamp):
+    """ converts a timestamp to a Sheets / Excel datetime """
+
+    # 1970-01-01 00:00:00 in Google Sheets / Microsoft Excel
+    EPOCH_START = 25569
+    SECONDS_IN_A_DAY = 86400
+    return timestamp / SECONDS_IN_A_DAY / 1000 + EPOCH_START
 
 def get_results_header(contents):
     """ extracts results names from the contents attribute """
@@ -134,7 +137,7 @@ def get_events(results, header, include={}, offset=0):
         row.update({k:v for k,v in event.items()})
         if 'timestamp' in row:
             row.update({
-                'datetime': row['timestamp'] / SECONDS_IN_A_DAY + EPOCH_START
+                'datetime': to_datetime(row['timestamp'])
             })
         data.append(row)
 
@@ -163,7 +166,7 @@ def get_timeseries(results, header, include={}, offset=0, prefix=''):
             'inspectedCount' + prefix: result['inspectedCount'],
             'timewindow' + prefix: result['endTimeSeconds'] - result['beginTimeSeconds'],
             'timestamp' + prefix: result['endTimeSeconds'],
-            'datetime' + prefix: result['endTimeSeconds'] / SECONDS_IN_A_DAY + EPOCH_START
+            'datetime' + prefix: to_datetime(int(result['endTimeSeconds']) * 1000)
         })
         data.append(row)
 
@@ -366,8 +369,9 @@ class NewRelicQueryAPI():
             fetch_data = get_single
             results = response['results']
             _include.update({
-                'timewindow': int((metadata['endTimeMillis'] - metadata['beginTimeMillis']) / 1000),
-                'timestamp': int(metadata['endTimeMillis'] / 1000)
+                'timewindow': int(metadata['endTimeMillis']) - int(metadata['beginTimeMillis']),
+                'timestamp': int(metadata['endTimeMillis']),
+                'datetime': to_datetime(metadata['endTimeMillis'])
             })
 
         elif has_events:
@@ -377,24 +381,23 @@ class NewRelicQueryAPI():
         elif has_compare:
             if has_facets:
                 fetch_data = get_compare_facets
-                _include.update({
-                    'timewindow': int((metadata['endTimeMillis'] - metadata['beginTimeMillis']) / 1000),
-                    'timestamp': int(metadata['endTimeMillis'] / 1000),
-                    'timestamp_compare': int((metadata['beginTimeMillis'] - metadata['compareWith']) / 1000)
-                })
 
             elif has_timeseries:
                 fetch_data = get_compare_timeseries
 
             else:
                 fetch_data = get_compare
-                _include.update({
-                    'timewindow': int((metadata['endTimeMillis'] - metadata['beginTimeMillis']) / 1000),
-                    'timestamp': int(metadata['endTimeMillis'] / 1000),
-                    'timestamp_compare': int((metadata['beginTimeMillis'] - metadata['compareWith']) / 1000)
-                })
 
             results = {'current': response['current'], 'previous': response['previous']}
+
+            if not has_timeseries:
+                _include.update({
+                    'timewindow': int(metadata['endTimeMillis']) - int(metadata['beginTimeMillis']),
+                    'timestamp': int(metadata['endTimeMillis']),
+                    'datetime': to_datetime(metadata['endTimeMillis']),
+                    'timestamp_compare': int(metadata['beginTimeMillis']) - int(metadata['compareWith']),
+                    'datetime_compare': to_datetime(int(metadata['beginTimeMillis']) - int(metadata['compareWith']))
+                })
 
         elif has_facets:
             if has_timeseries:
@@ -402,9 +405,11 @@ class NewRelicQueryAPI():
 
             else:
                 fetch_data = get_facets
+
                 _include.update({
-                    'timewindow': int((metadata['endTimeMillis'] - metadata['beginTimeMillis']) / 1000),
-                    'timestamp': int(metadata['endTimeMillis'] / 1000)
+                    'timewindow': int(metadata['endTimeMillis'] - metadata['beginTimeMillis']),
+                    'timestamp': int(metadata['endTimeMillis']),
+                    'datetime': to_datetime(metadata['endTimeMillis'])
                 })
 
             results = response['facets']
@@ -675,6 +680,6 @@ if __name__ == "__main__":
     # simple test case
     api = NewRelicQueryAPI()
     for nrql in nrqls:
-        events = api.query(nrql)
-        #events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
+        #events = api.query(nrql)
+        events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
         print(json.dumps(events, sort_keys=True, indent=4))

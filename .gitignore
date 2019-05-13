@@ -3,6 +3,10 @@
 secret*.json
 config.json
 
+# Compiled
+*.dist
+*.build
+
 # Mac crap
 .DS_Store
 

@@ -168,11 +168,7 @@ def export_accounts_events(storage, vault_file, query_file, accounts):
     for idx_account, account in enumerate(accounts):
 
         master_name = account['master_name']
-        account_id = account['account_id']
         account_name = account['account_name']
-        query_api_key = account['query_api_key']
-
-        log('account {}/{}: {} - {}'.format(idx_account+1, len_accounts, account_id, account_name))
 
         metadata = {k:v for k,v in account.items() if k in metadata_keys}
 
@@ -182,9 +178,6 @@ def export_accounts_events(storage, vault_file, query_file, accounts):
             nrql = query['nrql']
             secret = query.get('secret', None)
 
-            log('query {}/{}: {}'.format(idx_query+1, len_queries, name))
-
-            # check if a vaulted secret is required
             if secret:
                 if not secret in vault:
                     abort(f'error: cannot find {secret} in vault')
@@ -193,20 +186,15 @@ def export_accounts_events(storage, vault_file, query_file, accounts):
             else:
                 account_id = account['account_id']
                 query_api_key = account['query_api_key']
-                
+
+            log('account {}/{}: {} - {}, query {}/{}: {}'.format(
+                idx_account+1, len_accounts, account_id, account_name,
+                idx_query+1, len_queries, name)
+            )
+ 
             api = NewRelicQueryAPI(account_id, query_api_key)
-            events = api.events(query['nrql'], include=metadata) 
-
-            # there might be a better way of doing that
-            storage_class_name = type(storage).__name__
-            if storage_class_name == 'StorageLocal':
-                output_file = master_name + '_' + query['name'] 
-            elif storage_class_name == 'StorageGoogleDrive':
-                output_file = master_name + '/' + query['name']
-            elif storage_class_name == 'StorageNewRelicInsights':
-                output_file = query['name']
-
-            storage.dump_data(output_file, events)
+            events = api.events(query['nrql'], include=metadata)
+            storage.dump_data(master_name, query['name'], events)
 
 
 def do_batch_local(**args):

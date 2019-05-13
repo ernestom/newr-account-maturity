@@ -38,7 +38,7 @@ class StorageNewRelicInsights():
             csv_reader = csv.DictReader(f, delimiter=',')
             return list(dict(row) for row in csv_reader) 
         
-    def dump_data(self, event_type, data=[], max_retries=MAX_RETRIES):
+    def dump_data(self, master, event_type, data=[], max_retries=MAX_RETRIES):
         """ appends the data to the event """
         
         if type(data) == list and data:

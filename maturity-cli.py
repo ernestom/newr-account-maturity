@@ -2,7 +2,6 @@ import time
 import json
 import os
 
-
 from global_constants import *
 
 from newrelic_account_metrics import NewRelicAccountMetrics
@@ -12,8 +11,15 @@ from storage_google_drive import StorageGoogleDrive
 from storage_local import StorageLocal
 
 CONFIG_FILE = 'config.json'
-GOOGLES_EPOCH = 25569 # 1970-01-01 00:00:00 in Sheets
-SECONDS_IN_A_DAY = 86400
+
+
+def to_datetime(timestamp):
+    """ converts a timestamp to a Sheets / Excel datetime """
+
+    # 1970-01-01 00:00:00 in Google Sheets / Microsoft Excel
+    EPOCH_START = 25569
+    SECONDS_IN_A_DAY = 86400
+    return timestamp / SECONDS_IN_A_DAY + EPOCH_START
 
 
 def abort(message):
@@ -72,7 +78,7 @@ def inject_metadata(data, metadata):
         data[index] = _row
 
 
-def dump_data(config):
+def export_metrics(config):
     timestamp = int(time.time())
 
     # setup the required input and output instances
@@ -80,7 +86,8 @@ def dump_data(config):
         local_storage = StorageLocal(
             config['local_account_list_path'],
             config['local_output_folder_path'],
-            time.localtime(timestamp)
+            time.localtime(timestamp),
+            'MATURITY'
         )
 
     if config['input_google'] or config['output_google']:
@@ -88,7 +95,8 @@ def dump_data(config):
             config['google_account_list_id'], 
             config['google_output_folder_id'], 
             config['google_secret_file_path'],
-            time.localtime(timestamp)
+            time.localtime(timestamp),
+            'MATURITY'
         )
 
     if config['output_insights']:
@@ -133,33 +141,25 @@ def dump_data(config):
             'master_name': account_master,
             'account_id': account_id,
             'account_name': account_name,
-            'updated_at': timestamp / SECONDS_IN_A_DAY + GOOGLES_EPOCH
+            'datetime': to_datetime(timestamp)
         }
         inject_metadata(account_summary, metadata)
         inject_metadata(apm_apps, metadata)
         inject_metadata(browser_apps, metadata)
         inject_metadata(mobile_apps, metadata)
 
-        # dump metrics to local storage
-        if config['output_local']:
-            local_storage.dump_data(SUMMARY_NAME, account_summary)
-            local_storage.dump_data(account_master + '_' + APM_NAME, apm_apps)
-            local_storage.dump_data(account_master + '_' + BROWSER_NAME, browser_apps)
-            local_storage.dump_data(account_master + '_' + MOBILE_NAME, mobile_apps)
-
-        # dump metrics to google storage
-        if config['output_google']:
-            google_storage.dump_data(SUMMARY_NAME + '/' + SUMMARY_NAME, account_summary)
-            google_storage.dump_data(account_master + '/' + APM_NAME, apm_apps)
-            google_storage.dump_data(account_master + '/' + BROWSER_NAME, browser_apps)
-            google_storage.dump_data(account_master + '/' + MOBILE_NAME, mobile_apps)
-        
-        # dump metrics to insights storage 
-        if config['output_insights']:
-            insights_storage.dump_data(SUMMARY_NAME, account_summary)
-            insights_storage.dump_data(APM_NAME, apm_apps)
-            insights_storage.dump_data(BROWSER_NAME, browser_apps)
-            insights_storage.dump_data(MOBILE_NAME, mobile_apps)
+        # dumps the data to enabled storages
+        storages = [
+            local_storage if config['output_local'] else None,
+            google_storage if config['output_google'] else None,
+            insights_storage if config['output_insights'] else None
+        ]
+        for storage in storages:
+            if storage:
+                storage.dump_data(SUMMARY_NAME, account_summary)
+                storage.dump_data(account_master, APM_NAME, apm_apps)
+                storage.dump_data(account_master, BROWSER_NAME, browser_apps)
+                storage.dump_data(account_master, MOBILE_NAME, mobile_apps)
 
     if config['output_google']:
         google_storage.format_spreadsheets(config['pivots'])
@@ -167,7 +167,7 @@ def dump_data(config):
 def main():
     try:
         config = get_config()
-        dump_data(config)
+        export_metrics(config)
     except Exception as error:
         print(error.args)
 
