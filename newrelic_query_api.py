@@ -230,6 +230,13 @@ def get_compare_timeseries(results, header, include={}, offset=0):
     return data
     
 
+def parse_nrql(nrql, params):
+    """ replace variables in nrql """
+
+    # TODO: find all occurences of {string} and replace
+    
+    return nrql
+
 class NewRelicQueryAPI():
     """ interface to New Relic Query API that always returns a list of events 
     
@@ -295,28 +302,31 @@ class NewRelicQueryAPI():
         self.__url = f'https://insights-api.newrelic.com/v1/accounts/{account_id}/query'
         self.__max_retries = max_retries
 
-    def query(self, nrql):
+    def query(self, nrql, params={}):
         """ request a JSON result from the Insights Query API """
 
+        parsed_nrql = parse_nrql(nrql, params)
         succeeded = False
         count_retries = 0
         while not succeeded and count_retries < self.__max_retries:
             try:
                 count_retries += 1
-                response = requests.get(self.__url, headers=self.__headers, params={'nrql': nrql})
+                response = requests.get(
+                    self.__url, headers=self.__headers, params={'nrql': parsed_nrql}
+                )
                 succeeded = (response.status_code == requests.codes.ok) 
             except:
                 pass
 
         return response.json() if succeeded else []
 
-    def events(self, nrql, include={}):
+    def events(self, nrql, include={}, params={}):
         """ execute the nrql and convert to an events list """
 
         _include = {}
         _include.update(include)
 
-        response = self.query(nrql)
+        response = self.query(nrql, params=params)
         if not response:
             return []
 
