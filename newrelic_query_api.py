@@ -390,7 +390,7 @@ class NewRelicQueryAPI():
             fetch_data = get_single
             results = response['results']
             _include.update({
-                'timewindow': int(metadata['endTimeMillis']) - int(metadata['beginTimeMillis']),
+                'timewindow': (int(metadata['endTimeMillis']) - int(metadata['beginTimeMillis'])) / 1000,
                 'timestamp': int(metadata['endTimeMillis']),
                 'datetime': to_datetime(metadata['endTimeMillis'])
             })
@@ -413,7 +413,7 @@ class NewRelicQueryAPI():
 
             if not has_timeseries:
                 _include.update({
-                    'timewindow': int(metadata['endTimeMillis']) - int(metadata['beginTimeMillis']),
+                    'timewindow': (int(metadata['endTimeMillis']) - int(metadata['beginTimeMillis'])) / 1000,
                     'timestamp': int(metadata['endTimeMillis']),
                     'datetime': to_datetime(metadata['endTimeMillis']),
                     'timestamp_compare': int(metadata['beginTimeMillis']) - int(metadata['compareWith']),
@@ -428,7 +428,7 @@ class NewRelicQueryAPI():
                 fetch_data = get_facets
 
                 _include.update({
-                    'timewindow': int(metadata['endTimeMillis'] - metadata['beginTimeMillis']),
+                    'timewindow': (int(metadata['endTimeMillis']) - int(metadata['beginTimeMillis'])) / 1000,
                     'timestamp': int(metadata['endTimeMillis']),
                     'datetime': to_datetime(metadata['endTimeMillis'])
                 })
