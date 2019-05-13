@@ -36,35 +36,34 @@ def get_config():
         abort('error: config.json not found')
     
     config = json.load(open(CONFIG_FILE, 'r'))
-    local_output_folder_path = config.get('local_output_folder_path', '')
-    local_account_list_path = config.get('local_account_list_path', '')
-    google_output_folder_id = config.get('google_output_folder_id', '')
-    google_account_list_id = config.get('google_account_list_id', '')
-    google_account_list_sheet = config.get('google_account_list_sheet', 'Sheet1')
-    google_secret_file_path = config.get('google_secret_file_path', '')
-    new_relic_insights_api_key = config.get('new_relic_insights_api_key', '')
-    new_relic_insights_api_account_id = config.get('new_relic_insights_api_account_id', '')
+    output_folder = config.get('output_folder', '')
+    account_file = config.get('account_file', '')
+    output_folder_id = config.get('output_folder_id', '')
+    account_file_id = config.get('account_file_id', '')
+    account_sheet = config.get('account_sheet', 'Sheet1')
+    secret_file = config.get('secret_file', '')
+    insert_api_key = config.get('insert_api_key', '')
+    insert_account_id = config.get('insert_account_id', '')
     pivots = config.get('pivots', {})
-    del config
+    input_local = bool(account_file)
+    input_google = bool(account_file_id)
+    output_local = bool(output_folder)
+    output_google = bool(output_folder_id)
+    output_insights = bool(insert_api_key)
 
-    if not (bool(local_account_list_path) ^ bool(google_account_list_id)):
+    if not (input_local ^ input_google):
         abort('error: one and only one input list can be set (local or google)')
 
-    if not google_secret_file_path and google_output_folder_id:
+    if not secret_file and output_folder_id:
         abort('error: found a google output folder without a google secret file')
 
-    if not google_secret_file_path and google_account_list_id:
+    if not secret_file and account_file_id:
         abort('error: found a google input list without a google secret file')
 
-    if bool(new_relic_insights_api_key) ^ bool(new_relic_insights_api_account_id):
+    if bool(insert_api_key) ^ bool(insert_account_id):
         abort('error: both a new relic insights key and account id must be set')
 
-    input_local = bool(local_account_list_path)
-    input_google = bool(google_account_list_id)
-    output_local = bool(local_output_folder_path)
-    output_google = bool(google_output_folder_id)
-    output_insights = bool(new_relic_insights_api_key)
-
+    del config
     return locals()
 
 
@@ -84,26 +83,26 @@ def export_metrics(config):
     # setup the required input and output instances
     if config['input_local'] or config['output_local']:
         local_storage = StorageLocal(
-            config['local_account_list_path'],
-            config['local_output_folder_path'],
+            config['account_file'],
+            config['output_folder'],
             time.localtime(timestamp),
             'MATURITY'
         )
 
     if config['input_google'] or config['output_google']:
         google_storage = StorageGoogleDrive(
-            config['google_account_list_id'], 
-            config['google_output_folder_id'], 
-            config['google_secret_file_path'],
+            config['account_file_id'], 
+            config['output_folder_id'], 
+            config['secret_file'],
             time.localtime(timestamp),
             'MATURITY'
         )
 
     if config['output_insights']:
         insights_storage = StorageNewRelicInsights(
-            config['local_account_list_path'],
-            config['new_relic_insights_api_account_id'], 
-            config['new_relic_insights_api_key'],
+            config['account_file'],
+            config['insert_account_id'], 
+            config['insert_api_key'],
             timestamp
         )
 
@@ -119,14 +118,14 @@ def export_metrics(config):
     for index, account in enumerate(accounts):
 
         # get account fields
-        account_master = account['master_name']
+        master_name = account['master_name']
         account_id = account['account_id']
         account_name = account['account_name']
         rest_api_key = account['rest_api_key']
 
         # can do a better progression log...
         print('{}/{}: {} - {}'.format(
-            index + 1,
+            index+1,
             len(accounts),
             account_id,
             account_name
@@ -136,19 +135,18 @@ def export_metrics(config):
         account_maturity = NewRelicAccountMetrics(rest_api_key)
         account_summary, apm_apps, browser_apps, mobile_apps = account_maturity.metrics()
         
-        # collect and inject the required metadata
-        metadata = {
-            'master_name': account_master,
-            'account_id': account_id,
-            'account_name': account_name,
-            'datetime': to_datetime(timestamp)
-        }
-        inject_metadata(account_summary, metadata)
-        inject_metadata(apm_apps, metadata)
-        inject_metadata(browser_apps, metadata)
-        inject_metadata(mobile_apps, metadata)
+        # inject the required metadata in all lists
+        for item in [account_summary, apm_apps, browser_apps, mobile_apps]:
+            inject_metadata(
+                item, {
+                    'master_name': master_name,
+                    'account_id': account_id,
+                    'account_name': account_name,
+                    'datetime': to_datetime(timestamp)
+                }
+            )
 
-        # dumps the data to enabled storages
+        # dumps the data to available storages
         storages = [
             local_storage if config['output_local'] else None,
             google_storage if config['output_google'] else None,
@@ -157,12 +155,12 @@ def export_metrics(config):
         for storage in storages:
             if storage:
                 storage.dump_data(SUMMARY_NAME, account_summary)
-                storage.dump_data(account_master, APM_NAME, apm_apps)
-                storage.dump_data(account_master, BROWSER_NAME, browser_apps)
-                storage.dump_data(account_master, MOBILE_NAME, mobile_apps)
+                storage.dump_data(master_name, APM_NAME, apm_apps)
+                storage.dump_data(master_name, BROWSER_NAME, browser_apps)
+                storage.dump_data(master_name, MOBILE_NAME, mobile_apps)
 
     if config['output_google']:
-        google_storage.format_spreadsheets(config['pivots'])
+        google_storage.format_data(config['pivots'])
 
 def main():
     try:
