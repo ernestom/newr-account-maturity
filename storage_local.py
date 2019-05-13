@@ -4,7 +4,7 @@ import time
 
 class StorageLocal():
 
-    def __init__(self, account_file, output_folder, subfolder_prefix='RUN', timestamp=None):
+    def __init__(self, account_file, output_folder, timestamp=None, prefix='RUN'):
         """ init """
         
         self.__cache = {}
@@ -13,7 +13,7 @@ class StorageLocal():
             os.path.join(
                 output_folder,
                 time.strftime(
-                    f'{subfolder_prefix}_%Y-%m-%d_%H-%M', 
+                    f'{prefix}_%Y-%m-%d_%H-%M', 
                     time.localtime() if not timestamp else timestamp
                 )
             )

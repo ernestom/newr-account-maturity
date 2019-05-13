@@ -21,7 +21,7 @@ class StorageGoogleDrive():
         'spreadsheet': 'application/vnd.google-apps.spreadsheet'
     }
 
-    def __init__(self, account_file_id, output_folder_id, secret_file, subfolder_prefix='RUN', timestamp=None, writers=[], readers=[]):
+    def __init__(self, account_file_id, output_folder_id, secret_file, timestamp=None, prefix='RUN', writers=[], readers=[]):
         """ init """
         
         self.__cache = {}
@@ -29,7 +29,7 @@ class StorageGoogleDrive():
         self.__output_folder_id = output_folder_id
         self.__run_folder = \
             time.strftime(
-                f'{subfolder_prefix}_%Y-%m-%d_%H-%M', 
+                f'{prefix}_%Y-%m-%d_%H-%M', 
                 time.localtime() if not timestamp else timestamp
             )
         self.__run_folder_id = None
