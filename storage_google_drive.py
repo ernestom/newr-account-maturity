@@ -23,13 +23,13 @@ class StorageGoogleDrive():
 
     def __init__(self, account_file_id, output_folder_id, secret_file, timestamp=None, prefix='RUN', writers=[], readers=[]):
         """ init """
-        
+
         self.__cache = {}
         self.__account_file_id = account_file_id
         self.__output_folder_id = output_folder_id
         self.__run_folder = \
             time.strftime(
-                f'{prefix}_%Y-%m-%d_%H-%M', 
+                f'{prefix}_%Y-%m-%d_%H-%M',
                 time.localtime() if not timestamp else timestamp
             )
         self.__run_folder_id = None
@@ -38,7 +38,7 @@ class StorageGoogleDrive():
 
         if not os.path.exists(secret_file):
             abort(f'error: cannot find secret file {secret_file}')
-        
+
         try:
             credentials = ServiceAccountCredentials.from_json_keyfile_name(
                 secret_file,
@@ -67,7 +67,7 @@ class StorageGoogleDrive():
             if self.__readers:
                 body = {'role': 'reader', 'type': 'user', 'emailAddress': self.__readers}
                 self.__permissions.create(fileId=object_id, body=body).execute()
-        
+
         return object_id
 
     def __get_object_id(self, object_type, object_name, parent_id):
@@ -80,7 +80,7 @@ class StorageGoogleDrive():
         query = f"'{parent_id}' in parents and name = '{object_name}' and mimeType = '{mime_type}'"
         response = self.__files.list(q=query, spaces='drive', fields='files(id)').execute()
         files = response.get('files', [])
-        
+
         if len(files) == 1:
             object_id = files[0].get('id', None)
         else:
@@ -150,7 +150,7 @@ class StorageGoogleDrive():
             ]
         else:
             requests = None
-        
+
         if requests:
             body = {"requests": requests}
             self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
@@ -199,7 +199,7 @@ class StorageGoogleDrive():
             self.__cache.update({(spreadsheet_name,sheet_name): (spreadsheet_id,sheet_id)})
         else:
             just_created = False
-        
+
         return self.__cache[(spreadsheet_name,sheet_name)], just_created
 
     def get_accounts(self, sheet_range='Sheet1'):
@@ -211,17 +211,17 @@ class StorageGoogleDrive():
             headers, rows = values[0], values[1:]
             for row in rows:
                 accounts.append({headers[k]:v for k,v in enumerate(row)})
-    
+
         return accounts
-        
+
     def dump_data(self, spreadsheet_name, sheet_name, data=[]):
         """ appends the data to the output spreadsheet/sheet """
 
         # creates the output folder on the first dump
         if not self.__run_folder_id:
             self.__run_folder_id, _ = self.__create_object(
-                'folder', 
-                self.__run_folder, 
+                'folder',
+                self.__run_folder,
                 self.__output_folder_id
             )
 
@@ -235,7 +235,7 @@ class StorageGoogleDrive():
                 self.__fit_sheet_columns(spreadsheet_id, sheet_id, len(headers))
             else:
                 sheet_data = []
-            
+
             sheet_data.extend([list(row.values()) for row in data])
             self.__append_dataset(spreadsheet_id, sheet_id, sheet_data)
 

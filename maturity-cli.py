@@ -34,7 +34,7 @@ def get_config():
 
     if not os.path.exists(CONFIG_FILE):
         abort('error: config.json not found')
-    
+
     config = json.load(open(CONFIG_FILE, 'r'))
     output_folder = config.get('output_folder', '')
     account_file = config.get('account_file', '')
@@ -91,8 +91,8 @@ def export_metrics(config):
 
     if config['input_google'] or config['output_google']:
         google_storage = StorageGoogleDrive(
-            config['account_file_id'], 
-            config['output_folder_id'], 
+            config['account_file_id'],
+            config['output_folder_id'],
             config['secret_file'],
             time.localtime(timestamp),
             'MATURITY'
@@ -101,7 +101,7 @@ def export_metrics(config):
     if config['output_insights']:
         insights_storage = StorageNewRelicInsights(
             config['account_file'],
-            config['insert_account_id'], 
+            config['insert_account_id'],
             config['insert_api_key'],
             timestamp
         )
@@ -134,7 +134,7 @@ def export_metrics(config):
         # get metrics from current account
         account_maturity = NewRelicAccountMetrics(rest_api_key)
         account_summary, apm_apps, browser_apps, mobile_apps = account_maturity.metrics()
-        
+
         # inject the required metadata in all lists
         for item in [account_summary, apm_apps, browser_apps, mobile_apps]:
             inject_metadata(

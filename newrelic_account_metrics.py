@@ -182,7 +182,7 @@ class NewRelicAccountMetrics():
                 self.__metrics['mobile_reporting'] += 1
             else:
                 self.__metrics['mobile_non_reporting'] += 1
-    
+
             if not ('mobile_metric',id) in self.entities_with_conditions:
                 self.__metrics['mobile_without_conditions'] += 1
             else:
@@ -246,7 +246,7 @@ def main():
         print(json.dumps(apm_apps, sort_keys=True, indent=4))
         print(json.dumps(browser_apps, sort_keys=True, indent=4))
         print(json.dumps(mobile_apps, sort_keys=True, indent=4))
-    
+
     except Exception as exception:
         print(exception.args[0])
 

@@ -23,7 +23,7 @@ def cell_snippet(x):
         return {
             'userEnteredValue': {
                 'numberValue': x
-            }, 
+            },
             'userEnteredFormat': {
                 'numberFormat': {
                     'type': 'NUMBER',
@@ -35,7 +35,7 @@ def cell_snippet(x):
         return {
             'userEnteredValue': {
                 'numberValue': x
-            }, 
+            },
             'userEnteredFormat': {
                 'numberFormat': {
                     'type': 'DATE'
@@ -46,7 +46,7 @@ def cell_snippet(x):
         return {
             'userEnteredValue': {
                 'numberValue': x
-            }, 
+            },
             'userEnteredFormat': {
                 'numberFormat': {
                     'type': 'NUMBER',
@@ -64,7 +64,7 @@ def pivot_table_snippet(sheet_id, pivot, headers):
         rows.append({
             'sourceColumnOffset': headers.index(row),
             'showTotals': True,
-            'sortOrder': 'ASCENDING'           
+            'sortOrder': 'ASCENDING'
         })
 
     columns = []
@@ -72,7 +72,7 @@ def pivot_table_snippet(sheet_id, pivot, headers):
         columns.append({
             'sourceColumnOffset': headers.index(column),
             'showTotals': True,
-            'sortOrder': 'ASCENDING'           
+            'sortOrder': 'ASCENDING'
         })
 
     values = []

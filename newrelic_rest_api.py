@@ -39,7 +39,7 @@ def deployments_next_url(response):
     deployments = response.json().get('deployments', [])
     if not deployments:
         url = None
-    
+
     if url:
         a_month_ago = (datetime.today() - timedelta(days=30)).timestamp()
         timestamp = deployments[-1].get('timestamp', None)
@@ -230,13 +230,13 @@ def main():
                 abort('error: this endpoint does not take any id')
             else:
                 params = {}
-   
+
         api = NewRelicRestAPI()
         result, ok = api.get(endpoint, params=params)
 
         if not ok:
             abort('error: could not fetch data')
-        
+
         print(json.dumps(result, sort_keys=True, indent=4))
 
     except Exception as exception:

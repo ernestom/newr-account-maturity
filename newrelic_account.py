@@ -171,7 +171,7 @@ def main():
 
         if not ok:
             abort('error: could not fetch data')
-        
+
         print(json.dumps(result, sort_keys=True, indent=4))
 
     except Exception as exception:

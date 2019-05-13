@@ -51,7 +51,7 @@ def open_file(filename=None, mode='r', *args, **kwargs):
 
 
 def get_vault(vault_file):
-    """ returns a dict of keys from a CSV file """ 
+    """ returns a dict of keys from a CSV file """
 
     _, ext = os.path.splitext(vault_file)
     if ext.lower() not in ['.csv']:
@@ -62,7 +62,7 @@ def get_vault(vault_file):
             csv_reader = csv.DictReader(f, delimiter=',')
             return {
                 row['secret']: {
-                    'account_id': row['account_id'], 
+                    'account_id': row['account_id'],
                     'query_api_key': row['query_api_key']
                 } for row in csv_reader
             }
@@ -117,12 +117,12 @@ def do_query(**args):
     if not account_id:
         account_id = os.getenv('NEW_RELIC_ACCOUNT_ID', '')
     if not account_id:
-        abort('account id not provided and env NEW_RELIC_ACCOUNT_ID not set')
+        abort('account id not provided or NEW_RELIC_ACCOUNT_ID env not set')
 
     if not query_api_key:
         query_api_key = os.getenv('NEW_RELIC_QUERY_API_KEY', '')
     if not query_api_key:
-        abort('query api key not provided and env NEW_RELIC_QUERY_API_KEY not set')
+        abort('query api key not provided or NEW_RELIC_QUERY_API_KEY env not set')
 
     if not output_file:
         output_file = '-'
@@ -152,7 +152,7 @@ def do_query(**args):
         abort(f'error: cannot write to {output_file}')
 
 
-def export_accounts_events(storage, vault_file, query_file, accounts):
+def export_events(storage, vault_file, query_file, accounts):
 
     vault = get_vault(vault_file) if vault_file else {}
 
@@ -189,9 +189,9 @@ def export_accounts_events(storage, vault_file, query_file, accounts):
                 idx_account+1, len_accounts, account_id, account_name,
                 idx_query+1, len_queries, name)
             )
- 
+
             api = NewRelicQueryAPI(account_id, query_api_key)
-            events = api.events(query['nrql'], include=metadata)
+            events = api.events(query['nrql'], include=metadata, params=metadata)
             storage.dump_data(master_name, query['name'], events)
 
 
@@ -202,11 +202,11 @@ def do_batch_local(**args):
     query_file = args['query_file']
     account_file = args['account_file']
     output_folder = args['output_folder']
-    
+
     storage = StorageLocal(account_file, output_folder)
     accounts = storage.get_accounts()
 
-    export_accounts_events(storage, vault_file, query_file, accounts)
+    export_events(storage, vault_file, query_file, accounts)
 
 
 def do_batch_google(**args):
@@ -220,8 +220,8 @@ def do_batch_google(**args):
 
     storage = StorageGoogleDrive(account_file_id, output_folder_id, secret_file)
     accounts = storage.get_accounts()
-     
-    export_accounts_events(storage, vault_file, query_file, accounts)
+
+    export_events(storage, vault_file, query_file, accounts)
 
     # add some nice formatting to all Google Sheets
     storage.format_data()
@@ -239,7 +239,7 @@ def do_batch_insights(**args):
     storage = StorageNewRelicInsights(account_file, insert_account_id, insert_api_key)
     accounts = storage.get_accounts()
 
-    export_accounts_events(storage, vault_file, query_file, accounts)
+    export_events(storage, vault_file, query_file, accounts)
 
 if __name__ == "__main__":
     args, error = get_cmdline_args()

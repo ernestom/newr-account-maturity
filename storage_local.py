@@ -6,14 +6,14 @@ class StorageLocal():
 
     def __init__(self, account_file, output_folder, timestamp=None, prefix='RUN'):
         """ init """
-        
+
         self.__cache = {}
         self.__account_file = account_file
         self.__output_folder = \
             os.path.join(
                 output_folder,
                 time.strftime(
-                    f'{prefix}_%Y-%m-%d_%H-%M', 
+                    f'{prefix}_%Y-%m-%d_%H-%M',
                     time.localtime() if not timestamp else timestamp
                 )
             )
@@ -35,8 +35,8 @@ class StorageLocal():
 
         with open(self.__account_file) as f:
             csv_reader = csv.DictReader(f, delimiter=',')
-            return list(dict(row) for row in csv_reader) 
-        
+            return list(dict(row) for row in csv_reader)
+
     def dump_data(self, master, output_file, data=[]):
         """ appends the data to the output file """
 

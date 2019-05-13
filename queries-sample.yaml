@@ -6,7 +6,7 @@
         Transaction
 - name: event_list
   nrql: |
-    select 
+    select
         percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
@@ -37,7 +37,7 @@
         Transaction
 - name: timeseries
   nrql: |
-    select 
+    select
         percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
@@ -134,7 +134,7 @@
     timeseries
 - name: compared
   nrql: |
-    select 
+    select
         percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),

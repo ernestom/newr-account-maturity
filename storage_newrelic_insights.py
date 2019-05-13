@@ -36,11 +36,11 @@ class StorageNewRelicInsights():
 
         with open(self.__account_file) as f:
             csv_reader = csv.DictReader(f, delimiter=',')
-            return list(dict(row) for row in csv_reader) 
-        
+            return list(dict(row) for row in csv_reader)
+
     def dump_data(self, master, event_type, data=[], max_retries=MAX_RETRIES):
         """ appends the data to the event """
-        
+
         if type(data) == list and data:
             events = self.__get_events(event_type, data)
 

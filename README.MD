@@ -17,15 +17,15 @@ The account list can be consumed from local CSV files or a Google Sheet. The out
     - `pip3 install --upgrade virtualenv`
 
 ## Install
-- Download or git clone this repo into a working directory 
+- Download or git clone this repo into a working directory
     - `git clone https://github.com/ThyWoof/newr-account-maturity`
 - Setup a local python environment for the project
 	- `cd <PATH_TO_CLONED_PROJECT>`
 	- `virtualenv env`
 	- `source env/bin/activate`
 	- `pip install -r requirements.txt`
-	 
-## Launch 
+
+## Launch
 - TODO
 - ...
 

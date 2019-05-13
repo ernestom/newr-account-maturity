@@ -33,14 +33,14 @@ def get_results_header(contents):
         function = content['function']
         attribute = content.get('attribute', '')
         name = alias if alias else function + SP + attribute if attribute else function
-        
+
         if function == 'funnel':
             for step in content['steps']:
                 names.append(name + SP + str(step.replace(' ', SP)))
 
         elif function == 'percentile':
             for threshold in content['thresholds']:
-                names.append(name + SP + str(threshold)) 
+                names.append(name + SP + str(threshold))
 
         elif function == 'rate':
             if not alias:
@@ -56,7 +56,7 @@ def get_results_header(contents):
                 bucket = '%05.2f' % start + SP + '%05.2f' % end
                 names.append(name + SP + bucket)
                 start = end
-        
+
         elif function == 'apdex':
             # this other matters as get_result_values use the same
             names.append(name + '_count')
@@ -68,7 +68,7 @@ def get_results_header(contents):
 
         else:
             names.append(name)
-    
+
     return names
 
 
@@ -133,7 +133,7 @@ def get_single(results, header, include={}, offset=0):
 
 def get_events(results, header, include={}, offset=0):
     """ SELECT attr1, attr2, ... FROM ... """
-    
+
     data = []
     events = results[0]['events']
     for event in events:
@@ -179,7 +179,7 @@ def get_timeseries(results, header, include={}, offset=0, prefix=''):
 
 def get_compare(results, header, include={}, offset=0):
     """ SELECT aggr1(), aggr2(), ... FROM ... COMPARE WITH ... """
-    
+
     current = results['current']['results']
     previous = results['previous']['results']
     header_previous = [v if i < offset else v + '_compare' for i,v in enumerate(header)]
@@ -191,7 +191,7 @@ def get_compare(results, header, include={}, offset=0):
 
 def get_facets_timeseries(results, header, include={}, offset=0):
     """ SELECT aggr1(), aggr2(), ... FROM ... FACET attr1, attr2, ... TIMESERIES """
-    
+
     data = []
     for result in results:
         row = get_facets_values(result['name'], header)
@@ -232,7 +232,7 @@ def get_compare_timeseries(results, header, include={}, offset=0):
         data.append(curr)
 
     return data
-    
+
 
 def parse_nrql(nrql, params):
     """ replace variables in nrql """
@@ -243,12 +243,12 @@ def parse_nrql(nrql, params):
         if not var[1:-1] in params:
             abort(f'error: cannot find {var} in parameters dictionary')
         nrql.replace(str(var), str(params[var[1:-1]]))
-        
+
     return nrql
 
 class NewRelicQueryAPI():
-    """ interface to New Relic Query API that always returns a list of events 
-    
+    """ interface to New Relic Query API that always returns a list of events
+
         standard aggregate functions fully supported:
             - min
             - max
@@ -293,7 +293,7 @@ class NewRelicQueryAPI():
 
     def __init__(self, account_id=0, query_api_key='', max_retries=MAX_RETRIES):
         """ init """
-        
+
         if not account_id:
             account_id = os.getenv('NEW_RELIC_ACCOUNT_ID', '')
         if not account_id:
@@ -323,7 +323,7 @@ class NewRelicQueryAPI():
                 response = requests.get(
                     self.__url, headers=self.__headers, params={'nrql': parsed_nrql}
                 )
-                succeeded = (response.status_code == requests.codes.ok) 
+                succeeded = (response.status_code == requests.codes.ok)
             except:
                 pass
 
@@ -331,7 +331,7 @@ class NewRelicQueryAPI():
 
     def events(self, nrql, include={}, params={}):
         """ execute the nrql and convert to an events list """
-        
+
         # get the NRQL results
         response = self.query(nrql, params=params)
         if not response:
@@ -459,7 +459,7 @@ if __name__ == "__main__":
 
     # CASE 2 - aggregated values
     """
-    select 
+    select
         percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
@@ -492,7 +492,7 @@ if __name__ == "__main__":
 
     # CASE 3 - aggregated values over time
     """
-    select 
+    select
         percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),
@@ -595,7 +595,7 @@ if __name__ == "__main__":
 
     # CASE 6 - compared with aggregated values
     """
-    select 
+    select
         percentage(count(*), where duration < 0.05),
         funnel(traceId, where duration < 2, where duration < 1),
         apdex(duration, 0.02),

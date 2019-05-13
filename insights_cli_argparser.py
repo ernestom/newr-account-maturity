@@ -4,12 +4,12 @@ def get_cmdline_args():
     parser = argparse.ArgumentParser()
     parser.set_defaults(command=None)
     subparsers = parser.add_subparsers()
-    
+
     prepare_query_parser(subparsers)
     prepare_batch_local_parser(subparsers)
     prepare_batch_google_parser(subparsers)
     prepare_batch_insights_parser(subparsers)
-    
+
     args = parser.parse_args()
     error = parser.print_help if args.command == None else None
 
@@ -44,16 +44,13 @@ def prepare_batch_local_parser(subparsers):
     batch_local_parser.set_defaults(command='do_batch_local')
     batch_local_parser.add_argument('-v', '--vault-file',
         help='Local CSV vault file [secret,account_id,query_api_key]',
-        # type=argparse.FileType('r')
     )
     batch_local_parser.add_argument('-q', '--query-file',
         help='Local YAML input queries [{"name": "name", "nrql": "query"},...]',
-        # type=argparse.FileType('r'),
         required=True
     )
     batch_local_parser.add_argument('-a', '--account-file',
         help='Local CSV input accounts [master_name,account_id,account_name,query_api_key]',
-        # type=argparse.FileType('r'),
         required=True
     )
     batch_local_parser.add_argument('-o', '--output-folder',
@@ -67,11 +64,9 @@ def prepare_batch_google_parser(subparsers):
     batch_google_parser.set_defaults(command='do_batch_google')
     batch_google_parser.add_argument('-v', '--vault-file',
         help='Local CSV vault file [secret,account_id,query_api_key]',
-        # type=argparse.FileType('r')
     )
     batch_google_parser.add_argument('-q', '--query-file',
         help='Local YAML input queries [{"name": "name", "nrql": "query"},...]',
-        # type=argparse.FileType('r'),
         required=True
     )
     batch_google_parser.add_argument('-a', '--account-file-id',
@@ -84,7 +79,6 @@ def prepare_batch_google_parser(subparsers):
     )
     batch_google_parser.add_argument('-s', '--secret-file',
         help='Google secret file location',
-        # type=argparse.FileType('r'),
         required=True
     )
 
@@ -94,16 +88,13 @@ def prepare_batch_insights_parser(subparsers):
     batch_insights_parser.set_defaults(command='do_batch_insights')
     batch_insights_parser.add_argument('-v', '--vault-file',
         help='Local CSV vault file [secret,account_id,query_api_key]',
-        # type=argparse.FileType('r')
     )
     batch_insights_parser.add_argument('-q', '--query-file',
         help='Local YAML input queries [{"name": "name", "nrql": "query"},...]',
-        # type=argparse.FileType('r'),
         required=True
     )
     batch_insights_parser.add_argument('-a', '--account-file',
         help='Local CSV input accounts [master_name,account_id,account_name,query_api_key]',
-        # type=argparse.FileType('r'),
         required=True
     )
     batch_insights_parser.add_argument('-i', '--insert-account-id',
