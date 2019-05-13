@@ -14,15 +14,12 @@ def abort(message):
     print(message)
     exit()
 
-
 class StorageGoogleDrive():
 
     OBJECT_TYPES = {
         'folder': 'application/vnd.google-apps.folder',
         'spreadsheet': 'application/vnd.google-apps.spreadsheet'
     }
-
-    get_output_folder_name = lambda self,t: time.strftime('MATURITY_RUN-%Y-%m-%d %H:%M', t)
 
     def __init__(self, account_file_id, output_folder_id, secret_file, subfolder_prefix='RUN', timestamp=None, writers=[], readers=[]):
         """ init """
@@ -187,13 +184,8 @@ class StorageGoogleDrive():
             body = {"requests": requests}
             self.__spreadsheets.batchUpdate(spreadsheetId=spreadsheet_id, body=body).execute()
 
-    def __get_handle(self, spreadsheet_sheet_name):
+    def __get_handle(self, spreadsheet_name, sheet_name):
         """ return a (spreadsheet,sheet) handle and a flag if just created """
-
-        if spreadsheet_sheet_name.count('/') != 1:
-            abort('error: output name must use spreadsheet/sheet format')
-        
-        spreadsheet_name, sheet_name = spreadsheet_sheet_name.split('/')
 
         if not spreadsheet_name in self.__cache:
             spreadsheet_id, just_created = self.__create_object(
@@ -222,7 +214,7 @@ class StorageGoogleDrive():
     
         return accounts
         
-    def dump_data(self, spreadsheet_sheet_name, data=[]):
+    def dump_data(self, spreadsheet_name, sheet_name, data=[]):
         """ appends the data to the output spreadsheet/sheet """
 
         # creates the output folder on the first dump
@@ -234,7 +226,8 @@ class StorageGoogleDrive():
             )
 
         if type(data) == list and len(data):
-            (spreadsheet_id, sheet_id), just_created = self.__get_handle(spreadsheet_sheet_name)
+            (spreadsheet_id, sheet_id), just_created = \
+                self.__get_handle(spreadsheet_name, sheet_name)
 
             if just_created:
                 headers = list(data[0].keys())
@@ -257,21 +250,16 @@ class StorageGoogleDrive():
                 if not spreadsheet_id in requests_queue:
                     requests_queue[spreadsheet_id] = []
 
-                # add a pivot table
+                # create a pivot table
                 pivot_sheet_name = sheet_name + 'Pivot'
                 pivot_sheet_id, _ = self.__create_sheet(spreadsheet_id, pivot_sheet_name)
                 headers = self.__get_dataset(spreadsheet_id, sheet_name + '!1:1')[0]
                 pivot = pivots.get(sheet_name, {})
                 pivot_table = pivot_table_snippet(sheet_id, pivot, headers)
-                request = pivot_request(pivot_sheet_id, pivot_table)
-                print(json.dumps(request, sort_keys=True, indent=4))
-                requests_queue[spreadsheet_id].extend([
-                    request,
-                    auto_resize_dimension_request(pivot_sheet_id)
-                ])
 
-                # beautify all dumps
+                # add all formatting requests to the queue
                 requests_queue[spreadsheet_id].extend([
+                    pivot_request(pivot_sheet_id, pivot_table),
                     basic_filter_request(sheet_id),
                     format_header_request(sheet_id),
                     freeze_rows_request(sheet_id),

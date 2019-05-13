@@ -2,7 +2,6 @@ import time
 import json
 import os
 
-
 from global_constants import *
 
 from newrelic_account_metrics import NewRelicAccountMetrics
@@ -12,8 +11,15 @@ from storage_google_drive import StorageGoogleDrive
 from storage_local import StorageLocal
 
 CONFIG_FILE = 'config.json'
-GOOGLES_EPOCH = 25569 # 1970-01-01 00:00:00 in Sheets
-SECONDS_IN_A_DAY = 86400
+
+
+def to_datetime(timestamp):
+    """ converts a timestamp to a Sheets / Excel datetime """
+
+    # 1970-01-01 00:00:00 in Google Sheets / Microsoft Excel
+    EPOCH_START = 25569
+    SECONDS_IN_A_DAY = 86400
+    return timestamp / SECONDS_IN_A_DAY + EPOCH_START
 
 
 def abort(message):
@@ -80,6 +86,7 @@ def dump_data(config):
         local_storage = StorageLocal(
             config['local_account_list_path'],
             config['local_output_folder_path'],
+            'MATURITY',
             time.localtime(timestamp)
         )
 
@@ -88,6 +95,7 @@ def dump_data(config):
             config['google_account_list_id'], 
             config['google_output_folder_id'], 
             config['google_secret_file_path'],
+            'MATURITY',
             time.localtime(timestamp)
         )
 
@@ -133,7 +141,7 @@ def dump_data(config):
             'master_name': account_master,
             'account_id': account_id,
             'account_name': account_name,
-            'updated_at': timestamp / SECONDS_IN_A_DAY + GOOGLES_EPOCH
+            'datetime': to_datetime(timestamp)
         }
         inject_metadata(account_summary, metadata)
         inject_metadata(apm_apps, metadata)
