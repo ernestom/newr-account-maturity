@@ -93,16 +93,14 @@ def validate_input(subject, data, keys):
         abort(f'error: {subject} list expected')
 
     len_data = len(data)
-    if not len_data:
-        abort(f'error: empty {subject} list received')
-    
-    item = data[0]
-    if not type(item) == dict:
-        abort(f'error: {subject} dictionary expected')
+    if len_data:
+        item = data[0]
+        if not type(item) == dict:
+            abort(f'error: {subject} dictionary expected')
 
-    for key in keys:
-        if not key in item:
-            abort(f'error: {key} in account dictionary expected')
+        for key in keys:
+            if not key in item:
+                abort(f'error: {key} in account dictionary expected')
 
     return len_data
 
