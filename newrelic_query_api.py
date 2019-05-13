@@ -242,7 +242,7 @@ def parse_nrql(nrql, params):
     for var in pattern.findall(nrql):
         if not var[1:-1] in params:
             abort(f'error: cannot find {var} in parameters dictionary')
-        nrql.replace(var, params[var[1:-1]])
+        nrql.replace(str(var), str(params[var[1:-1]]))
         
     return nrql
 
@@ -447,12 +447,14 @@ class NewRelicQueryAPI():
 
 if __name__ == "__main__":
     nrqls = [
-    # CASE 1 - event list
+    # CASE 1 - event list (with a variable example)
     """
     select
         appName, appId
     from
         Transaction
+    where
+        '${account_id}' = '${account_id}'
     """,
 
     # CASE 2 - aggregated values
@@ -700,7 +702,7 @@ if __name__ == "__main__":
 
     # simple test case
     api = NewRelicQueryAPI()
-    for nrql in nrqls:
+    for nrql in nrqls[0:1]:
         #events = api.query(nrql)
-        events = api.events(nrql, include={'eventType': 'MyCustomEvent'})
+        events = api.events(nrql, include={'eventType': 'MyCustomEvent'}, params={'account_id': 1})
         print(json.dumps(events, sort_keys=True, indent=4))
